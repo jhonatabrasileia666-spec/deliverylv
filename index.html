@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root{--ink:#11100f;--ink-2:#191715;--paper:#f4eee5;--muted:#aaa29a;--line:#37322f;--orange:#ff5a16;--orange-2:#ff7b27;--cream:#fff9f2;--lime:#d9f15c;--shadow:0 22px 60px #0009}
     *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ink);color:var(--cream);font-family:Manrope,system-ui,sans-serif;font-size:15px}button{font:inherit;color:inherit;border:0;cursor:pointer}button:focus-visible{outline:3px solid var(--lime);outline-offset:3px}img{display:block;max-width:100%}
@@ -127,7 +128,26 @@
   ];
   const edges=[['Mista',15],['Queijo',20],['Chocolate',15],['Catupiry',10],['Cheddar',10]], sizes=[['Pequena',37],['Média',47],['Grande',65]];
   const savory=['Calabresa Catupiry','Calabresa Cheddar','Calabresa','Carne Moída','Requeijão','Frango Catupiry','Frango Cheddar','Frango','Mussarela','Carne Seca'], sweet=['Banana Chocolate','Banana Frita Queijo','Chocolate Granulado','Prestígio','Romeu e Julieta'], drinks=[['Kina Abacaxi',10],['Baré Guaraná',10]];
-  const ORDER_SYNC_KEY='delivery-lv-orders-v1', orderChannel=typeof BroadcastChannel==='function'?new BroadcastChannel('delivery-lv-orders'):null;
+  const SUPABASE_URL='https://nhvarlrbqbryrurpdwvp.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0nKLavga7G2XF-Ckz34tbw_VNbqfdo1';
+  const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+  let productLookup=null;
+  async function loadProductLookup(){
+    if(productLookup)return productLookup;
+    const [categoryResult,productResult]=await Promise.all([
+      db.from('categories').select('id,slug').eq('active',true),
+      db.from('products').select('id,name,category_id').eq('active',true)
+    ]);
+    if(categoryResult.error)throw categoryResult.error;
+    if(productResult.error)throw productResult.error;
+    const slugByCategoryId=new Map(categoryResult.data.map(category=>[category.id,category.slug]));
+    productLookup=new Map();
+    productResult.data.forEach(product=>{
+      const slug=slugByCategoryId.get(product.category_id);
+      if(slug)productLookup.set(`${slug}|${product.name}`,product.id);
+    });
+    return productLookup;
+  }
   let cart=[], selected=null;
   const money=value=>value.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const pizzaImage="https://images.unsplash.com/photo-1594007654729-407eedc4be65?auto=format&fit=crop&w=360&q=80";
@@ -135,19 +155,59 @@
   document.querySelector('#pizza-grid').innerHTML=pizzas.map(pizzaCard).join('');
   function simpleCard(name,price=7){return `<div class="simple-card"><div><h3>${name}</h3><p>Escolha sua quantidade no pedido</p></div><strong class="simple-price">${money(price)}</strong><button class="quick-add" data-quick="${name}" data-price="${price}" aria-label="Adicionar ${name}"><i data-lucide="plus"></i></button></div>`}
   document.querySelector('#savory-list').innerHTML=savory.map(name=>simpleCard(name)).join(''); document.querySelector('#sweet-list').innerHTML=sweet.map(name=>simpleCard(name)).join(''); document.querySelector('#drink-list').innerHTML=drinks.map(([name,price])=>simpleCard(name,price)).join('');
-  function openProduct(index){selected={name:pizzas[index][0],ingredients:pizzas[index][1],size:0,edge:null,qty:1,note:''};renderProduct();document.querySelector('#product-overlay').classList.add('show')}
+  function openProduct(index){selected={name:pizzas[index][0],ingredients:pizzas[index][1],category:'pizzas',size:0,edge:null,qty:1,note:''};renderProduct();document.querySelector('#product-overlay').classList.add('show')}
   function currentPrice(){return sizes[selected.size][1]+(selected.edge?selected.edge[1]:0)}
   function renderProduct(){document.querySelector('#product-detail').innerHTML=`<div class="detail-hero"><img class="detail-image" src="${pizzaImage}" alt="Pizza ${selected.name}"><div><h3>${selected.name}</h3><p>${selected.ingredients}</p></div></div><div class="field"><span class="field-label">Tamanho da pizza</span><div class="option-grid">${sizes.map((s,i)=>`<button class="option ${i===selected.size?'selected':''}" data-size="${i}"><strong>${s[0]}</strong><span>${s[1]===37?'1 sabor':'2 sabores'} · ${money(s[1])}</span></button>`).join('')}</div></div><div class="field"><span class="field-label">Borda opcional</span><div class="option-grid"><button class="option ${!selected.edge?'selected':''}" data-edge="none"><strong>Sem borda</strong><span>Sem acréscimo</span></button>${edges.map((edge,i)=>`<button class="option ${selected.edge&&selected.edge[0]===edge[0]?'selected':''}" data-edge="${i}"><strong>${edge[0]}</strong><span>+ ${money(edge[1])}</span></button>`).join('')}</div></div><div class="field"><span class="field-label">Quantidade</span><div class="quantity"><button class="step" data-product-qty="-1"><i data-lucide="minus"></i></button><b>${selected.qty}</b><button class="step" data-product-qty="1"><i data-lucide="plus"></i></button></div></div><div class="field"><label class="field-label" for="note">Alguma observação?</label><textarea class="textarea" id="note" placeholder="Ex.: sem cebola">${selected.note}</textarea></div><div class="total-line"><span>Total</span><strong>${money(currentPrice()*selected.qty)}</strong></div><button class="primary" id="add-product">Adicionar ao pedido <i data-lucide="shopping-bag"></i></button>`;lucide.createIcons();document.querySelectorAll('[data-size]').forEach(button=>button.onclick=()=>{selected.size=Number(button.dataset.size);renderProduct()});document.querySelectorAll('[data-edge]').forEach(button=>button.onclick=()=>{selected.edge=button.dataset.edge==='none'?null:edges[Number(button.dataset.edge)];renderProduct()});document.querySelectorAll('[data-product-qty]').forEach(button=>button.onclick=()=>{selected.qty=Math.max(1,selected.qty+Number(button.dataset.productQty));renderProduct()});document.querySelector('#add-product').onclick=()=>{selected.note=document.querySelector('#note').value;cart.push({...selected,price:currentPrice()});closeOverlay('product-overlay');updateCart();showToast('Adicionado ao pedido')}}
-  function addQuick(name,price){const existing=cart.find(item=>item.name===name&&!item.size);if(existing)existing.qty++;else cart.push({name,ingredients:'Item escolhido no cardápio',qty:1,price});updateCart();showToast('Adicionado ao pedido')}
+  function addQuick(name,price,category){const existing=cart.find(item=>item.name===name&&item.category===category&&item.size===undefined);if(existing)existing.qty++;else cart.push({name,ingredients:'Item escolhido no cardápio',category,qty:1,price});updateCart();showToast('Adicionado ao pedido')}
   function updateCart(){const qty=cart.reduce((sum,item)=>sum+item.qty,0),total=cart.reduce((sum,item)=>sum+item.price*item.qty,0);document.querySelector('#cart-count').textContent=qty;document.querySelector('#cart-summary').textContent=qty?`Ver pedido · ${money(total)}`:'Seu pedido está vazio';document.querySelector('#cart-bar').classList.toggle('visible',qty>0);renderCart()}
-  function sendOrderToOperation(){const total=cart.reduce((sum,item)=>sum+item.price*item.qty,0),orders=JSON.parse(localStorage.getItem(ORDER_SYNC_KEY)||'[]'),id=Date.now(),order={id,customer:'Cliente do cardápio',minutes:0,status:'new',time:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),type:'Retirada no balcão',payment:'A confirmar',total,items:cart.map(item=>({qty:item.qty,name:item.name,detail:item.size?`${sizes[item.size][0]}${item.edge?' · Borda '+item.edge[0]:''}${item.note?' · '+item.note:''}`:'Porção escolhida',price:item.price}))};orders.push(order);localStorage.setItem(ORDER_SYNC_KEY,JSON.stringify(orders));if(orderChannel)orderChannel.postMessage(order);cart=[];updateCart();closeOverlay('cart-overlay');showToast('Pedido enviado para a cozinha')}
-  function renderCart(){const total=cart.reduce((sum,item)=>sum+item.price*item.qty,0),detail=document.querySelector('#cart-detail');if(!cart.length){detail.innerHTML='<div class="empty">Seu carrinho ainda está vazio.<br>Escolha algo delicioso para começar.</div>';return}detail.innerHTML=`<div class="cart-list">${cart.map((item,index)=>`<div class="cart-item"><div class="cart-item-main"><div><h3>${item.name}</h3><p>${item.size?`${sizes[item.size][0]}${item.edge?' · Borda '+item.edge[0]:''}${item.note?' · '+item.note:''}`:'Porção escolhida'}</p></div><strong>${money(item.price*item.qty)}</strong></div><div class="cart-controls"><button data-cart-action="minus" data-index="${index}" aria-label="Diminuir"><i data-lucide="minus"></i></button><b>${item.qty}</b><button data-cart-action="plus" data-index="${index}" aria-label="Aumentar"><i data-lucide="plus"></i></button><button class="remove" data-cart-action="remove" data-index="${index}">Remover</button></div></div>`).join('')}</div><div class="total-line"><span>Total do pedido</span><strong>${money(total)}</strong></div><button class="primary" id="continue-order">Enviar pedido <i data-lucide="arrow-right"></i></button>`;lucide.createIcons();document.querySelectorAll('[data-cart-action]').forEach(button=>button.onclick=()=>{const i=Number(button.dataset.index),action=button.dataset.cartAction;if(action==='plus')cart[i].qty++;if(action==='minus')cart[i].qty--;if(action==='remove'||cart[i].qty<=0)cart.splice(i,1);updateCart();document.querySelector('#cart-overlay').classList.add('show')});document.querySelector('#continue-order').onclick=sendOrderToOperation}
+  async function sendOrderToOperation(){
+    if(!cart.length)return;
+    const button=document.querySelector('#continue-order');
+    if(button){button.disabled=true;button.textContent='Enviando pedido...'}
+    try{
+      const lookup=await loadProductLookup();
+      const items=cart.map(item=>{
+        const category=item.category||'esfirras';
+        const productId=lookup.get(`${category}|${item.name}`);
+        if(!productId)throw new Error(`Produto não encontrado no Supabase: ${category} / ${item.name}`);
+        const payload={
+          product_id:productId,
+          qty:item.qty,
+          note:item.note||'',
+          detail:category==='pizzas'?'':'Porção escolhida'
+        };
+        if(category==='pizzas'){
+          payload.size=sizes[item.size][0];
+          payload.edge=item.edge?item.edge[0]:null;
+        }
+        return payload;
+      });
+      const pedido={
+        customer_name:'Cliente do cardápio',
+        order_type:'Retirada no balcão',
+        payment_method:'A confirmar',
+        items
+      };
+      const {data,error}=await db.rpc('criar_pedido',{p_pedido:pedido});
+      if(error)throw error;
+      const orderId=Array.isArray(data)&&data[0]?data[0].order_id:null;
+      cart=[];
+      updateCart();
+      closeOverlay('cart-overlay');
+      showToast(orderId?`Pedido #${orderId} enviado para a cozinha`:'Pedido enviado para a cozinha');
+    }catch(error){
+      console.error('Erro ao enviar pedido ao Supabase:',error);
+      showToast('Não foi possível enviar o pedido. Tente novamente.');
+      renderCart();
+    }
+  }
+  function renderCart(){const total=cart.reduce((sum,item)=>sum+item.price*item.qty,0),detail=document.querySelector('#cart-detail');if(!cart.length){detail.innerHTML='<div class="empty">Seu carrinho ainda está vazio.<br>Escolha algo delicioso para começar.</div>';return}detail.innerHTML=`<div class="cart-list">${cart.map((item,index)=>`<div class="cart-item"><div class="cart-item-main"><div><h3>${item.name}</h3><p>${item.category==='pizzas'?`${sizes[item.size][0]}${item.edge?' · Borda '+item.edge[0]:''}${item.note?' · '+item.note:''}`:'Porção escolhida'}</p></div><strong>${money(item.price*item.qty)}</strong></div><div class="cart-controls"><button data-cart-action="minus" data-index="${index}" aria-label="Diminuir"><i data-lucide="minus"></i></button><b>${item.qty}</b><button data-cart-action="plus" data-index="${index}" aria-label="Aumentar"><i data-lucide="plus"></i></button><button class="remove" data-cart-action="remove" data-index="${index}">Remover</button></div></div>`).join('')}</div><div class="total-line"><span>Total do pedido</span><strong>${money(total)}</strong></div><button class="primary" id="continue-order">Enviar pedido <i data-lucide="arrow-right"></i></button>`;lucide.createIcons();document.querySelectorAll('[data-cart-action]').forEach(button=>button.onclick=()=>{const i=Number(button.dataset.index),action=button.dataset.cartAction;if(action==='plus')cart[i].qty++;if(action==='minus')cart[i].qty--;if(action==='remove'||cart[i].qty<=0)cart.splice(i,1);updateCart();document.querySelector('#cart-overlay').classList.add('show')});document.querySelector('#continue-order').onclick=sendOrderToOperation}
   function closeOverlay(id){document.querySelector('#'+id).classList.remove('show')}
   function showToast(text){const toast=document.querySelector('#toast');toast.textContent=text;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2200)}
-  document.addEventListener('click',event=>{const pizza=event.target.closest('[data-pizza]');if(pizza)openProduct(Number(pizza.dataset.pizza));const quick=event.target.closest('[data-quick]');if(quick)addQuick(quick.dataset.quick,Number(quick.dataset.price));const close=event.target.closest('[data-close]');if(close)closeOverlay(close.dataset.close);if(event.target.classList.contains('overlay'))event.target.classList.remove('show')});
+  document.addEventListener('click',event=>{const pizza=event.target.closest('[data-pizza]');if(pizza)openProduct(Number(pizza.dataset.pizza));const quick=event.target.closest('[data-quick]');if(quick){const category=quick.closest('.section')?.id||'esfirras';addQuick(quick.dataset.quick,Number(quick.dataset.price),category)}const close=event.target.closest('[data-close]');if(close)closeOverlay(close.dataset.close);if(event.target.classList.contains('overlay'))event.target.classList.remove('show')});
   document.querySelector('#open-cart').onclick=()=>{renderCart();document.querySelector('#cart-overlay').classList.add('show')};document.querySelector('#bar-cart').onclick=()=>{renderCart();document.querySelector('#cart-overlay').classList.add('show')};document.querySelector('#voice-toggle').onclick=()=>document.querySelector('#voice-panel').classList.toggle('show');
   document.querySelectorAll('.category').forEach(button=>button.onclick=()=>{document.querySelectorAll('.category').forEach(item=>item.classList.remove('active'));button.classList.add('active');document.querySelector('#'+button.dataset.target).scrollIntoView({behavior:'smooth',block:'start'})});
-  lucide.createIcons();updateCart();
+  lucide.createIcons();updateCart();loadProductLookup().catch(error=>console.error('Erro ao carregar produtos do Supabase:',error));
 </script>
   <script>
     document.querySelectorAll('.category').forEach(tab=>tab.addEventListener('click',()=>{
