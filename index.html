@@ -184,7 +184,7 @@
       });
       const pedido={
         customer_name:'Cliente do cardápio',
-        order_type:'Retirada no balcão',
+        order_type:'pickup',
         payment_method:'A confirmar',
         items
       };
@@ -197,11 +197,10 @@
       showToast(orderId?`Pedido #${orderId} enviado para a cozinha`:'Pedido enviado para a cozinha');
     }catch(error){
       console.error('Erro ao enviar pedido ao Supabase:',error);
-      showToast('Não foi possível enviar o pedido. Tente novamente.');
+      showToast(error.message||'Não foi possível enviar o pedido. Tente novamente.');
       renderCart();
     }
   }
-  
   function renderCart(){const total=cart.reduce((sum,item)=>sum+item.price*item.qty,0),detail=document.querySelector('#cart-detail');if(!cart.length){detail.innerHTML='<div class="empty">Seu carrinho ainda está vazio.<br>Escolha algo delicioso para começar.</div>';return}detail.innerHTML=`<div class="cart-list">${cart.map((item,index)=>`<div class="cart-item"><div class="cart-item-main"><div><h3>${item.name}</h3><p>${item.category==='pizzas'?`${sizes[item.size][0]}${item.edge?' · Borda '+item.edge[0]:''}${item.note?' · '+item.note:''}`:'Porção escolhida'}</p></div><strong>${money(item.price*item.qty)}</strong></div><div class="cart-controls"><button data-cart-action="minus" data-index="${index}" aria-label="Diminuir"><i data-lucide="minus"></i></button><b>${item.qty}</b><button data-cart-action="plus" data-index="${index}" aria-label="Aumentar"><i data-lucide="plus"></i></button><button class="remove" data-cart-action="remove" data-index="${index}">Remover</button></div></div>`).join('')}</div><div class="total-line"><span>Total do pedido</span><strong>${money(total)}</strong></div><button class="primary" id="continue-order">Enviar pedido <i data-lucide="arrow-right"></i></button>`;lucide.createIcons();document.querySelectorAll('[data-cart-action]').forEach(button=>button.onclick=()=>{const i=Number(button.dataset.index),action=button.dataset.cartAction;if(action==='plus')cart[i].qty++;if(action==='minus')cart[i].qty--;if(action==='remove'||cart[i].qty<=0)cart.splice(i,1);updateCart();document.querySelector('#cart-overlay').classList.add('show')});document.querySelector('#continue-order').onclick=sendOrderToOperation}
   function closeOverlay(id){document.querySelector('#'+id).classList.remove('show')}
   function showToast(text){const toast=document.querySelector('#toast');toast.textContent=text;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2200)}
