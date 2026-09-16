@@ -1,0 +1,25 @@
+name: Apply delivery code UI
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-delivery-code-ui.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch cardapio
+        run: python .github/scripts/add_delivery_code_ui.py
+      - name: Commit final files and cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/apply-delivery-code-ui.yml .github/scripts/add_delivery_code_ui.py
+          git add -A
+          git commit -m "feat: add delivery confirmation code" || exit 0
+          git push
