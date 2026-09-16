@@ -194,7 +194,7 @@
       nav.insertAdjacentHTML('beforeend',`<button class="category" data-dynamic-category data-target="${target}"><i data-lucide="utensils"></i>${category.name||category.slug}</button>`);
       sections.insertAdjacentHTML('beforeend',`<section class="section" id="${target}" data-dynamic-section><div class="section-head"><div><span class="eyebrow">Cardápio</span><h2>${category.name||category.slug}</h2></div><p>Escolha seu favorito</p></div><div id="category-list-${category.slug}">${products.map(product=>simpleCard(product,category.slug)).join('')||'<div class="empty">Nenhum produto cadastrado.</div>'}</div></section>`);
     });
-    document.querySelectorAll('.category').forEach(button=>button.onclick=()=>{document.querySelectorAll('.category').forEach(item=>item.classList.remove('active'));button.classList.add('active');document.querySelector('#'+button.dataset.target)?.scrollIntoView({behavior:'smooth',block:'start'})});
+    document.querySelectorAll('.category').forEach(button=>button.onclick=()=>{document.querySelectorAll('.category').forEach(item=>item.classList.remove('active'));button.classList.add('active');const target=button.dataset.target;document.querySelectorAll('.menu-sections .section').forEach(section=>section.style.display=section.id===target?'block':'none');document.querySelector('#'+target)?.scrollIntoView({behavior:'smooth',block:'start'})});
     lucide.createIcons()
   }
   async function loadCatalog(){
