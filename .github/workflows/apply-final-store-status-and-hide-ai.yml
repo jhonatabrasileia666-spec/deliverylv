@@ -1,0 +1,44 @@
+name: Apply store status and hide voice AI
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-final-store-status-and-hide-ai.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply cardapio production changes
+        run: python .github/scripts/final-store-status-and-hide-ai.py
+      - name: Validate markers
+        run: |
+          grep -q 'id="temporary-hide-voice-ai"' index.html
+          grep -q 'id="store-status-text"' index.html
+          grep -q 'async function loadStoreStatus()' index.html
+          grep -q 'const storeStatusOk=await loadStoreStatus()' index.html
+          grep -q "db.from('store_settings').select('is_open')" index.html
+      - name: Check inline JavaScript syntax
+        run: |
+          python - <<'PY'
+          import re, pathlib
+          s=pathlib.Path('index.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S)
+          pathlib.Path('/tmp/cardapio-inline.js').write_text('\n'.join(blocks),encoding='utf-8')
+          PY
+          node --check /tmp/cardapio-inline.js
+      - name: Commit result and remove temporary automation
+        run: |
+          rm -f .github/scripts/final-store-status-and-hide-ai.py .github/workflows/apply-final-store-status-and-hide-ai.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: respect store status and hide voice AI'
+          git push
