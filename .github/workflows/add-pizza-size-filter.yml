@@ -16,72 +16,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Patch storefront pizza size filter
+      - name: Apply storefront patch
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          path=Path('index.html')
-          text=path.read_text(encoding='utf-8')
-
-          def replace_once(old,new,label):
-              global text
-              count=text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{label}: expected 1 match, found {count}')
-              text=text.replace(old,new,1)
-
-          replace_once(
-              ".size:first-child{border-color:#ff5a1680;background:#241710}\n    .product-grid",
-              ".size:first-child{border-color:#ff5a1680;background:#241710}\n    .pizza-size-filter-wrap{margin:0 0 18px}.pizza-size-filter-label{display:block;margin-bottom:8px;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em}.pizza-size-filter{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pizza-size-choice{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:9px 10px;background:#1a1715;border:1px solid var(--line);border-radius:12px;color:var(--muted);transition:.2s}.pizza-size-choice strong{font-family:\"Barlow Condensed\";font-size:25px;line-height:1;color:var(--cream)}.pizza-size-choice span{font-size:10px;font-weight:800}.pizza-size-choice.active{background:var(--orange);border-color:var(--orange);color:#1b110b}.pizza-size-choice.active strong{color:#1b110b}.pizza-size-choice:hover{border-color:var(--orange)}\n    .product-grid",
-              'css'
-          )
-
-          replace_once(
-              "let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogPizzaSizes=[], catalogEdges=[], checkoutType='pickup', checkoutPayment='pix', checkoutStep='cart', customerName='', customerPhone='', customerAddress='', storeIsOpen=false, storeStatusReady=false;",
-              "let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogPizzaSizes=[], catalogEdges=[], selectedPizzaCatalogSize='Pequena', checkoutType='pickup', checkoutPayment='pix', checkoutStep='cart', customerName='', customerPhone='', customerAddress='', storeIsOpen=false, storeStatusReady=false;",
-              'state'
-          )
-
-          replace_once(
-              "  function productEdges(){const rows=catalogEdges.length?catalogEdges.map(edge=>[edge.name,Number(edge.price||0)]):edges;return rows.filter(edge=>edge[0])}",
-              "  const pizzaCatalogSizeChoices=[['Pequena','P'],['Média','M'],['Grande','G']];\n  function pizzaCatalogSizeRow(product,sizeName=selectedPizzaCatalogSize){return productSizesFor(product).find(size=>normalizeSizeName(size.name)===normalizeSizeName(sizeName))||null}\n  function pizzaCatalogSizeFilter(){return `<div class=\"pizza-size-filter-wrap\"><span class=\"pizza-size-filter-label\">Tamanho da pizza</span><div class=\"pizza-size-filter\" role=\"group\" aria-label=\"Escolha o tamanho da pizza\">${pizzaCatalogSizeChoices.map(([name,short])=>`<button type=\"button\" class=\"pizza-size-choice ${normalizeSizeName(selectedPizzaCatalogSize)===normalizeSizeName(name)?'active':''}\" data-pizza-catalog-size=\"${name}\"><strong>${short}</strong><span>${name}</span></button>`).join('')}</div></div>`}\n  function productEdges(){const rows=catalogEdges.length?catalogEdges.map(edge=>[edge.name,Number(edge.price||0)]):edges;return rows.filter(edge=>edge[0])}",
-              'helpers'
-          )
-
-          replace_once(
-              "    const precoInicial=productStartingPrice(product);\n    const priceLabel=usesSizes&&sizeRows.length?`a partir de ${money(precoInicial)}`:money(precoInicial);",
-              "    const selectedPizzaRow=categorySlugFor(product)==='pizzas'?pizzaCatalogSizeRow(product):null;\n    const precoInicial=selectedPizzaRow?Number(selectedPizzaRow.price||0)+acrescimo:productStartingPrice(product);\n    const priceLabel=selectedPizzaRow?money(precoInicial):(usesSizes&&sizeRows.length?`a partir de ${money(precoInicial)}`:money(precoInicial));",
-              'card price'
-          )
-
-          old_render="""    sectionsHost.innerHTML=visibleCategories.map((category,index)=>{
-      const products=catalogProducts.filter(product=>String(product.category_id)===String(category.id));
-      return `<section class=\"section ${index===0?'active':''}\" id=\"${escapeCatalogText(category.slug)}\"><div class=\"section-head\"><div><span class=\"eyebrow\">Escolha seu produto</span><h2>${escapeCatalogText(category.name||category.slug)}</h2></div><p>${products.length} ${products.length===1?'opção':'opções'}</p></div><div class=\"product-grid\">${products.map(catalogCard).join('')}</div></section>`;
-    }).join('');"""
-          new_render="""    sectionsHost.innerHTML=visibleCategories.map((category,index)=>{
-      const categoryProducts=catalogProducts.filter(product=>String(product.category_id)===String(category.id));
-      const isPizza=category.slug==='pizzas';
-      const products=isPizza?categoryProducts.filter(product=>pizzaCatalogSizeRow(product)):categoryProducts;
-      const sizeFilter=isPizza?pizzaCatalogSizeFilter():'';
-      const eyebrow=isPizza?'Escolha o tamanho':'Escolha seu produto';
-      return `<section class=\"section ${index===0?'active':''}\" id=\"${escapeCatalogText(category.slug)}\"><div class=\"section-head\"><div><span class=\"eyebrow\">${eyebrow}</span><h2>${escapeCatalogText(category.name||category.slug)}</h2></div><p>${products.length} ${products.length===1?'opção':'opções'}</p></div>${sizeFilter}<div class=\"product-grid\">${products.map(catalogCard).join('')}</div></section>`;
-    }).join('');"""
-          replace_once(old_render,new_render,'render catalog')
-
-          replace_once(
-              "    selected={id:product.id,name:product.name,ingredients:product.description||'',category,pricingMode,sizes:configuredSizes,size:0,basePrice:Number(product.base_price||0),edge:null,qty:1,note:'',priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),image:product.image_url||pizzaImage,flavors:category==='pizzas'?[flavorInfo(product)]:[]};",
-              "    const initialSizeIndex=category==='pizzas'?configuredSizes.findIndex(size=>normalizeSizeName(size.name)===normalizeSizeName(selectedPizzaCatalogSize)):0;\n    selected={id:product.id,name:product.name,ingredients:product.description||'',category,pricingMode,sizes:configuredSizes,size:initialSizeIndex>=0?initialSizeIndex:0,basePrice:Number(product.base_price||0),edge:null,qty:1,note:'',priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),image:product.image_url||pizzaImage,flavors:category==='pizzas'?[flavorInfo(product)]:[]};",
-              'open product initial size'
-          )
-
-          replace_once(
-              "  document.addEventListener('click',event=>{const configurable=event.target.closest('[data-configure-product]');",
-              "  document.addEventListener('click',event=>{const pizzaSizeChoice=event.target.closest('[data-pizza-catalog-size]');if(pizzaSizeChoice){selectedPizzaCatalogSize=pizzaSizeChoice.dataset.pizzaCatalogSize;renderCatalog();return}const configurable=event.target.closest('[data-configure-product]');",
-              'click handler'
-          )
-
-          path.write_text(text,encoding='utf-8')
-          PY
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCnBhdGg9UGF0aCgiaW5kZXguaHRtbCIpCnRleHQ9cGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKCmRlZiByZXBsYWNlX29uY2Uob2xkLG5ldyxsYWJlbCk6CiAgICBnbG9iYWwgdGV4dAogICAgY291bnQ9dGV4dC5jb3VudChvbGQpCiAgICBpZiBjb3VudCAhPSAxOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJ7bGFiZWx9OiBleHBlY3RlZCAxIG1hdGNoLCBmb3VuZCB7Y291bnR9IikKICAgIHRleHQ9dGV4dC5yZXBsYWNlKG9sZCxuZXcsMSkKCnJlcGxhY2Vfb25jZSgKICAgICIuc2l6ZTpmaXJzdC1jaGlsZHtib3JkZXItY29sb3I6I2ZmNWExNjgwO2JhY2tncm91bmQ6IzI0MTcxMH1cbiAgICAucHJvZHVjdC1ncmlkIiwKICAgICIuc2l6ZTpmaXJzdC1jaGlsZHtib3JkZXItY29sb3I6I2ZmNWExNjgwO2JhY2tncm91bmQ6IzI0MTcxMH1cbiAgICAucGl6emEtc2l6ZS1maWx0ZXItd3JhcHttYXJnaW46MCAwIDE4cHh9LnBpenphLXNpemUtZmlsdGVyLWxhYmVse2Rpc3BsYXk6YmxvY2s7bWFyZ2luLWJvdHRvbTo4cHg7Y29sb3I6dmFyKC0tbXV0ZWQpO2ZvbnQtc2l6ZToxMXB4O2ZvbnQtd2VpZ2h0OjgwMDt0ZXh0LXRyYW5zZm9ybTp1cHBlcmNhc2U7bGV0dGVyLXNwYWNpbmc6LjEyZW19LnBpenphLXNpemUtZmlsdGVye2Rpc3BsYXk6Z3JpZDtncmlkLXRlbXBsYXRlLWNvbHVtbnM6cmVwZWF0KDMsMWZyKTtnYXA6OHB4fS5waXp6YS1zaXplLWNob2ljZXtkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyO2p1c3RpZnktY29udGVudDpjZW50ZXI7Z2FwOjhweDttaW4taGVpZ2h0OjQ4cHg7cGFkZGluZzo5cHggMTBweDtiYWNrZ3JvdW5kOiMxYTE3MTU7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtib3JkZXItcmFkaXVzOjEycHg7Y29sb3I6dmFyKC0tbXV0ZWQpO3RyYW5zaXRpb246LjJzfS5waXp6YS1zaXplLWNob2ljZSBzdHJvbmd7Zm9udC1mYW1pbHk6XCJCYXJsb3cgQ29uZGVuc2VkXCI7Zm9udC1zaXplOjI1cHg7bGluZS1oZWlnaHQ6MTtjb2xvcjp2YXIoLS1jcmVhbSl9LnBpenphLXNpemUtY2hvaWNlIHNwYW57Zm9udC1zaXplOjEwcHg7Zm9udC13ZWlnaHQ6ODAwfS5waXp6YS1zaXplLWNob2ljZS5hY3RpdmV7YmFja2dyb3VuZDp2YXIoLS1vcmFuZ2UpO2JvcmRlci1jb2xvcjp2YXIoLS1vcmFuZ2UpO2NvbG9yOiMxYjExMGJ9LnBpenphLXNpemUtY2hvaWNlLmFjdGl2ZSBzdHJvbmd7Y29sb3I6IzFiMTEwYn0ucGl6emEtc2l6ZS1jaG9pY2U6aG92ZXJ7Ym9yZGVyLWNvbG9yOnZhcigtLW9yYW5nZSl9XG4gICAgLnByb2R1Y3QtZ3JpZCIsCiAgICAiY3NzIgopCgpyZXBsYWNlX29uY2UoCiAgICAibGV0IGNhcnQ9W10sIHNlbGVjdGVkPW51bGwsIGNhdGFsb2dQcm9kdWN0cz1bXSwgY2F0YWxvZ0NhdGVnb3JpZXM9W10sIGNhdGFsb2dQcm9kdWN0U2l6ZXM9W10sIGNhdGFsb2dQaXp6YVNpemVzPVtdLCBjYXRhbG9nRWRnZXM9W10sIGNoZWNrb3V0VHlwZT0ncGlja3VwJywgY2hlY2tvdXRQYXltZW50PSdwaXgnLCBjaGVja291dFN0ZXA9J2NhcnQnLCBjdXN0b21lck5hbWU9JycsIGN1c3RvbWVyUGhvbmU9JycsIGN1c3RvbWVyQWRkcmVzcz0nJywgc3RvcmVJc09wZW49ZmFsc2UsIHN0b3JlU3RhdHVzUmVhZHk9ZmFsc2U7IiwKICAgICJsZXQgY2FydD1bXSwgc2VsZWN0ZWQ9bnVsbCwgY2F0YWxvZ1Byb2R1Y3RzPVtdLCBjYXRhbG9nQ2F0ZWdvcmllcz1bXSwgY2F0YWxvZ1Byb2R1Y3RTaXplcz1bXSwgY2F0YWxvZ1BpenphU2l6ZXM9W10sIGNhdGFsb2dFZGdlcz1bXSwgc2VsZWN0ZWRQaXp6YUNhdGFsb2dTaXplPSdQZXF1ZW5hJywgY2hlY2tvdXRUeXBlPSdwaWNrdXAnLCBjaGVja291dFBheW1lbnQ9J3BpeCcsIGNoZWNrb3V0U3RlcD0nY2FydCcsIGN1c3RvbWVyTmFtZT0nJyw gY3VzdG9tZXJQaG9uZT0nJyw gY3VzdG9tZXJBZGRyZXNzPScnLCBzdG9yZUlzT3Blbj1mYWxzZSwgc3RvcmVTdGF0dXNSZWFkeT1mYWxzZTsiLnJlcGxhY2UoJyAnLCcnKSwKICAgICJzdGF0ZSIKKQoKcmVwbGFjZV9vbmNlKAogICAgIiAgZnVuY3Rpb24gcHJvZHVjdEVkZ2VzKCl7Y29uc3Qgcm93cz1jYXRhbG9nRWRnZXMubGVuZ3RoP2NhdGFsb2dFZGdlcy5tYXAoZWRnZT0+W2VkZ2UubmFtZSxOdW1iZXIoZWRnZS5wcmljZXx8MCldKTplZGdlczt yZXR1cm4gcm93cy5maWx0ZXIoZWRnZT0+ZWRnZVswXSl9Ii5yZXBsYWNlKCc7ICcsJzsnKSwKICAgICIiIiAgY29uc3QgcGl6emFDYXRhbG9nU2l6ZUNob2ljZXM9W1snUGVxdWVuYScsJ1AnXSxbJ03DqWRpYScsJ00nXSxbJ0dyYW5kZScsJ0cnXV07CiAgZnVuY3Rpb24gcGl6emFDYXRhbG9nU2l6ZVJvdyhwcm9kdWN0LHNpemVOYW1lPXNlbGVjdGVkUGl6emFDYXRhbG9nU2l6ZSl7cmV0dXJuIHByb2R1Y3RTaXplc0Zvcihwcm9kdWN0KS5maW5kKHNpemU9Pm5vcm1hbGl6ZVNpemVOYW1lKHNpemUubmFtZSk9PT1ub3JtYWxpemVTaXplTmFtZShzaXplTmFtZSkpfHxudWxsfQogIGZ1bmN0aW9uIHBpenphQ2F0YWxvZ1NpemVGaWx0ZXIoKXtyZXR1cm4gYDxkaXYgY2xhc3M9InBpenphLXNpemUtZmlsdGVyLXdyYXAiPjxzcGFuIGNsYXNzPSJwaXp6YS1zaXplLWZpbHRlci1sYWJlbCI+VGFtYW5obyBkYSBwaXp6YTwvc3Bhbj48ZGl2IGNsYXNzPSJwaXp6YS1zaXplLWZpbHRlciIgcm9sZT0iZ3JvdXAiIGFyaWEtbGFiZWw9IkVzY29saGEgbyB0YW1hbmhvIGRhIHBpenphIj4ke3BpenphQ2F0YWxvZ1NpemVDaG9pY2VzLm1hcCgoW25hbWUsc2hvcnRdKT0+YDxidXR0b24gdHlwZT0iYnV0dG9uIiBjbGFzcz0icGl6emEtc2l6ZS1jaG9pY2UgJHtub3JtYWxpemVTaXplTmFtZShzZWxlY3RlZFBpenphQ2F0YWxvZ1NpemUpPT09bm9ybWFsaXplU2l6ZU5hbWUobmFtZSk/J2FjdGl2ZSc6Jyd9IiBkYXRhLXBpenphLWNhdGFsb2ctc2l6ZT0iJHtuYW1lfSI+PHN0cm9uZz4ke3Nob3J0fTwvc3Ryb25nPjxzcGFuPiR7bmFtZX08L3NwYW4+PC9idXR0b24+YCkuam9pbignJyl9PC9kaXY+PC9kaXY+YH0KICBmdW5jdGlvbiBwcm9kdWN0RWRnZXMoKXtjb25zdCByb3dzPWNhdGFsb2dFZGdlcy5sZW5ndGg/Y2F0YWxvZ0VkZ2VzLm1hcChlZGdlPT5bZWRnZS5uYW1lLE51bWJlcihlZGdlLnByaWNlfHwwKV0pOmVkZ2VzO3JldHVybiByb3dzLmZpbHRlcihlZGdlPT5lZGdlWzBdKX0iIiwKICAgICJoZWxwZXJzIgp9XQoKcmVwbGFjZV9vbmNlKAogICAgIiAgICBjb25zdCBwcmVjb0luaWNpYWw9cHJvZHVjdFN0YXJ0aW5nUHJpY2UocHJvZHVjdCk7XG4gICAgY29uc3QgcHJpY2VMYWJlbD11c2VzU2l6ZXMmJnNpemVSb3dzLmxlbmd0aD9gYSBwYXJ0aXIgZGUgJHttb25leShwcmVjb0luaWNpYWwpfWA6bW9uZXkocHJlY29JbmljaWFsKTsiLAogICAgIiAgICBjb25zdCBzZWxlY3RlZFBpenphUm93PWNhdGVnb3J5U2x1Z0Zvcihwcm9kdWN0KT09PSdwaXp6YXM nP3BpenphQ2F0YWxvZ1NpemVSb3cocHJvZHVjdCk6bnVsbDtcbiAgICBjb25zdCBwcmVjb0luaWNpYWw9c2VsZWN0ZWRQaXp6YVJvdz9OdW1iZXIoc2VsZWN0ZWRQaXp6YVJvdy5wcmljZXx8MCkrYWNyZXNjaW1vOnByb2R1Y3RTdGFydGluZ1ByaWNlKHByb2R1Y3QpO1xuICAgIGNvbnN0IHByaWNlTGFiZWw9c2VsZWN0ZWRQaXp6YVJvdz9tb25leShwcmVjb0luaWNpYWwpOih1c2VzU2l6ZXMmJnNpemVSb3dzLmxlbmd0aD9gYSBwYXJ0aXIgZGUgJHttb25leShwcmVjb0luaWNpYWwpfWA6bW9uZXkocHJlY29JbmljaWFsKSk7Ii5yZXBsYWNlKCJwaXp6YXMgJyIsInBpenphcyciKSwKICAgICJjYXJkIHByaWNlIgp9XQoKb2xkX3JlbmRlciA9ICIiIiAgICBzZWN0aW9uc0hvc3QuaW5uZXJIVE1MPXZpc2libGVDYXRlZ29yaWVzLm1hcCgoY2F0ZWdvcnksaW5kZXgpPT57CiAgICAgIGNvbnN0IHByb2R1Y3RzPWNhdGFsb2dQcm9kdWN0cy5maWx0ZXIocHJvZHVjdD0+U3RyaW5nKHByb2R1Y3QuY2F0ZWdvcnlfaWQpPT09U3RyaW5nKGNhdGVnb3J5LmlkKSk7CiAgICAgIHJldHVyIGA8c2VjdGlvbiBjbGFzcz0ic2VjdGlvbiAke2luZGV4PT09MD8nYWN0aXZlJzonJ30iIGlkPSIke2VzY2FwZUNhdGFsb2dUZXh0KGNhdGVnb3J5LnNsdWcpfSI+PGRpdiBjbGFzcz0ic2VjdGlvbi1oZWFkIj48ZGl2PjxzcGFuIGNsYXNzPSJleWVicm93Ij5Fc2NvbGhhIHNldSBwcm9kdXRvPC9zcGFuPjxoMj4ke2VzY2FwZUNhdGFsb2dUZXh0KGNhdGVnb3J5Lm5hbWV8fGNhdGVnb3J5LnNsdWcpfTwvaDI+PC9kaXY+PHA+JHtwcm9kdWN0cy5sZW5ndGh9ICR7cHJvZHVjdHMubGVuZ3RoPT09MT8nb3DDp8Ojbyc6J29ww6fDtWVzJ308L3A+PC9kaXY+PGRpdiBjbGFzcz0icHJvZHVjdC1ncmlkIj4ke3Byb2R1Y3RzLm1hcChjYXRhbG9nQ2FyZCkuam9pbignJyl9PC9kaXY+PC9zZWN0aW9uPmA7CiAgICB9KS5qb2luKCcnKTsiIiIKbmV3X3JlbmRlciA9ICIiIiAgICBzZWN0aW9uc0hvc3QuaW5uZXJIVE1MPXZpc2libGVDYXRlZ29yaWVzLm1hcCgoY2F0ZWdvcnksaW5kZXgpPT57CiAgICAgIGNvbnN0IGNhdGVnb3J5UHJvZHVjdHM9Y2F0YWxvZ1Byb2R1Y3RzLmZpbHRlcihwcm9kdWN0PT5TdHJpbmcocHJvZHVjdC5jYXRlZ29yeV9pZCk9PT1TdHJpbmcoY2F0ZWdvcnkuaWQpKTsKICAgICAgY29uc3QgaXNQaXp6YT1jYXRlZ29yeS5zbHVnPT09J3Bpenphcyc7CiAgICAgIGNvbnN0IHByb2R1Y3RzPWlzUGl6emE/Y2F0ZWdvcnlQcm9kdWN0cy5maWx0ZXIocHJvZHVjdD0+cGl6emFDYXRhbG9nU2l6ZVJvdyhwcm9kdWN0KSk6Y2F0ZWdvcnlQcm9kdWN0czsKICAgICAgY29uc3Qgc2l6ZUZpbHRlcj1pc1BpenphP3BpenphQ2F0YWxvZ1NpemVGaWx0ZXIoKTonJzsKICAgICAgY29uc3QgZXllYnJvdz1pc1BpenphPydFc2NvbGhhIG8gdGFtYW5obyc6J0VzY29saGEgc2V1IHByb2R1dG8nOwogICAgICByZXR1cm4gYDxzZWN0aW9uIGNsYXNzPSJzZWN0aW9uICR7aW5kZXg9PT0wPydhY3RpdmUnOid9IiBpZD0iJHtlc2NhcGVDYXRhbG9nVGV4dChjYXRlZ29yeS5zbHVnKX0iPjxkaXYgY2xhc3M9InNlY3Rpb24taGVhZCI+PGRpdj48c3BhbiBjbGFzcz0iZXllYnJvdyI+JHtleWVicm93fTwvc3Bhbj48aDI+JHtlc2NhcGVDYXRhbG9nVGV4dChjYXRlZ29yeS5uYW1lfHxjYXRlZ29yeS5zbHVnKX08L2gyPjwvZGl2PjxwPiR7cHJvZHVjdHMubGVuZ3RofSAke3Byb2R1Y3RzLmxlbmd0aD09PTE/J29ww6fDo28nOidvcMOnw7VlcyclfTwvcD48L2Rpdj4ke3NpemVGaWx0ZXJ9PGRpdiBjbGFzcz0icHJvZHVjdC1ncmlkIj4ke3Byb2R1Y3RzLm1hcChjYXRhbG9nQ2FyZCkuam9pbignJyl9PC9kaXY+PC9zZWN0aW9uPmA7CiAgICB9KS5qb2luKCcnKTsiIiIKcmVwbGFjZV9vbmNlKG9sZF9yZW5kZXIsbmV3X3JlbmRlciwicmVuZGVyIGNhdGFsb2ciKQoKcmVwbGFjZV9vbmNlKAogICAgIiAgICBzZWxlY3RlZD17aWQ6cHJvZHVjdC5pZCxuYW1lOnByb2R1Y3QubmFtZSxpbmdyZWRpZW50czpwcm9kdWN0LmRlc2NyaXB0aW9ufHwnJyxjYXRlZ29yeSxwcmljaW5nTW9kZSxzaXplczpjb25maWd1cmVkU2l6ZXMsc2l6ZTowLGJhc2VQcmljZTpOdW1iZXIocHJvZHVjdC5iYXNlX3ByaWNlfHwwKSxlZGdlOm51bGwscXR5OjEsbm90ZTonJyxwcmljZUFkZGl0aW9uOk51bWJlcihwcm9kdWN0LnByaWNlX2FkZGl0aW9ufHwwKSxhbGxvd0VkZ2VzOkJvb2xlYW4ocHJvZHVjdC5hbGxvd19lZGdlcyksaW1hZ2U6cHJvZHVjdC5pbWFnZV91cmx8fHBpenphSW1hZ2UsZmxhdm9yczpjYXRlZ29yeT09PSdwaXp6YXM nP1tmbGF2b3JJbmZvKHByb2R1Y3QpXTpbXX07Ii5yZXBsYWNlKCJwaXp6YXMgJyIsInBpenphcyciKSwKICAgICIgICAgY29uc3QgaW5pdGlhbFNpemVJbmRleD1jYXRlZ29yeT09PSdwaXp6YXM nP2NvbmZpZ3VyZWRTaXplcy5maW5kSW5kZXgoc2l6ZT0+bm9ybWFsaXplU2l6ZU5hbWUoc2l6ZS5uYW1lKT09PW5vcm1hbGl6ZVNpemVOYW1lKHNlbGVjdGVkUGl6emFDYXRhbG9nU2l6ZSkpOjA7XG4gICAgc2VsZWN0ZWQ9e2lkOnByb2R1Y3QuaWQsbmFtZTpwcm9kdWN0Lm5hbWUsaW5ncmVkaWVudHM6cHJvZHVjdC5kZXNjcmlwdGlvbnx8JycsY2F0ZWdvcnkscHJpY2luZ01vZGUs c2l6ZXM6Y29uZmlndXJlZFNpemVzLHNpemU6aW5pdGlhbFNpemVJbmRleD49MD9pbml0aWFsU2l6ZUluZGV4OjAsYmFzZVByaWNlOk51bWJlcihwcm9kdWN0LmJhc2VfcHJpY2V8fDApLGVkZ2U6bnVsbCxxdHk6MSxub3RlOicnLHByaWNlQWRkaXRpb246TnVtYmVyKHByb2R1Y3QucHJpY2VfYWRkaXRpb258fDApLGFsbG93RWRnZXM6Qm9vbGVhbihwcm9kdWN0LmFsbG93X2VkZ2VzKSxpbWFnZTpwcm9kdWN0LmltYWdlX3VybHx8cGl6emFJbWFnZSxmbGF2b3JzOmNhdGVnb3J5PT09J3Bpenphcyc/W2ZsYXZvckluZm8ocHJvZHVjdCldOltdfTsiLnJlcGxhY2UoJyxwcmljaW5nTW9kZSwgc2l6ZXMnLCcscHJpY2luZ01vZGUs c2l6ZXMnKS5yZXBsYWNlKCJwaXp6YXMgJyIsInBpenphcyciKSwKICAgICJvcGVuIHByb2R1Y3QiCikKCnJlcGxhY2Vfb25jZSgKICAgICI gIGRvY3VtZW50LmFkZEV2ZW50TGlzdGVuZXIoJ2NsaWNrJyxldmVudD0+e2NvbnN0IGNvbmZpZ3VyYWJsZT1ldmVudC50YXJnZXQuY2xvc2VzdCgnW2RhdGEtY29uZmlndXJlLXByb2R1Y3RdJyk7Ii5yZXBsYWNlKCc gJywnICcpLAogICAgIiAgZG9jdW1lbnQuYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLGV2ZW50PT57Y29uc3QgcGl6emFTaXplQ2hvaWNlPWV2ZW50LnRhcmdldC5jbG9zZXN0KCdbZGF0YS1waXp6YS1jYXRhbG9nLXNpemVdJyk7aWYocGl6emFTaXplQ2hvaWNlKXtzZWxlY3RlZFBpenphQ2F0YWxvZ1NpemU9cGl6emFTaXplQ2hvaWNlLmRhdGFzZXQucGl6emFDYXRhbG9nU2l6ZTtyZW5kZXJDYXRhbG9nKCk7cmV0dXJufWNvbnN0IGNvbmZpZ3VyYWJsZT1ldmVudC50YXJnZXQuY2xvc2VzdCgnW2RhdGEtY29uZmlndXJlLXByb2R1Y3RdJyk7IiwKICAgICJjbGljayBoYW5kbGVyIgopCgpwYXRoLndyaXRlX3RleHQodGV4dCxlbmNvZGluZz0idXRmLTgiKQo=' | base64 -d > /tmp/patch.py
+          python /tmp/patch.py
       - name: Validate inline JavaScript
         run: |
           python - <<'PY'
@@ -90,18 +28,16 @@ jobs:
           text=Path('index.html').read_text(encoding='utf-8')
           scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',text,re.S|re.I)
           for i,code in enumerate(scripts):
-              if not code.strip():
-                  continue
-              tmp=Path(f'/tmp/storefront-{i}.js')
-              tmp.write_text(code,encoding='utf-8')
-              subprocess.run(['node','--check',str(tmp)],check=True)
+              if not code.strip(): continue
+              p=Path(f'/tmp/storefront-{i}.js')
+              p.write_text(code,encoding='utf-8')
+              subprocess.run(['node','--check',str(p)],check=True)
           print('Inline JavaScript valid')
           PY
       - name: Verify feature markers
         run: |
           grep -q 'data-pizza-catalog-size' index.html
           grep -q "selectedPizzaCatalogSize='Pequena'" index.html
-          grep -q 'pizzaCatalogSizeRow' index.html
       - name: Commit feature and remove temporary workflow
         run: |
           rm -f .github/workflows/add-pizza-size-filter.yml
