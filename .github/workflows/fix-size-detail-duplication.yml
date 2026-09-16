@@ -1,0 +1,27 @@
+name: Fix size detail duplication
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-size-detail-duplication.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply cleanup
+        run: python3 .github/scripts/fix_size_detail_duplication.py
+      - name: Validate
+        run: |
+          grep -q "detail:item.sizeName?'':" index.html
+          git diff --check
+      - name: Commit cleanup
+        run: |
+          rm .github/scripts/fix_size_detail_duplication.py
+          rm .github/workflows/fix-size-detail-duplication.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/scripts/fix_size_detail_duplication.py .github/workflows/fix-size-detail-duplication.yml
+          git commit -m "fix: avoid duplicate size detail"
+          git push
