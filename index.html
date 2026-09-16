@@ -247,7 +247,7 @@
           product_id:productId,
           qty:item.qty,
           note:item.note||'',
-          detail:item.sizeName?`Tamanho ${item.sizeName}`:(category==='pizzas'?'':'Porção escolhida')
+          detail:item.sizeName?'':(category==='pizzas'?'':'Porção escolhida')
         };
         if(item.sizeName)payload.size=item.sizeName;
         if(item.edge)payload.edge=item.edge[0];
