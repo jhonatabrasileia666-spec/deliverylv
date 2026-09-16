@@ -212,6 +212,35 @@
       const {data,error}=await db.rpc('criar_pedido',{p_pedido:pedido});
       if(error)throw error;
       const orderId=Array.isArray(data)&&data[0]?data[0].order_id:null;
+      const totalPedido=cart.reduce((sum,item)=>sum+item.price*item.qty,0);
+      const tipoPedidoLabel={delivery:'Entrega',pickup:'Retirada',local:'Comer no local'}[checkoutType]||checkoutType;
+      const pagamentoPedidoLabel={pix:'Pix',card:'Cartão',cash:'Dinheiro'}[checkoutPayment]||pedido.payment_method||'A confirmar';
+      const itensWhatsApp=cart.map(item=>{
+        const detalhes=[];
+        if(item.category==='pizzas'){
+          if(Number.isInteger(item.size)&&sizes[item.size])detalhes.push(sizes[item.size][0]);
+          if(item.edge)detalhes.push(`Borda ${item.edge[0]}`);
+          if(item.note)detalhes.push(`Obs: ${item.note}`);
+        }else if(item.note){
+          detalhes.push(`Obs: ${item.note}`);
+        }
+        return `• ${item.qty}x ${item.name}${detalhes.length?` (${detalhes.join(' · ')})`:''} — ${money(item.price*item.qty)}`;
+      }).join('\n');
+      const mensagemWhatsApp=[
+        '🍕 *NOVO PEDIDO - DELIVERY LV*',
+        orderId?`*Pedido #${orderId}*`:'',
+        '',
+        `👤 Cliente: ${customerName}`,
+        `📦 Tipo: ${tipoPedidoLabel}`,
+        checkoutType==='delivery'&&customerAddress?`📍 Endereço: ${customerAddress}`:'',
+        `💳 Pagamento: ${checkoutType==='delivery'?pagamentoPedidoLabel:'A confirmar'}`,
+        '',
+        '*Itens:*',
+        itensWhatsApp,
+        '',
+        `💰 *Total: ${money(totalPedido)}*`
+      ].filter(Boolean).join('\n');
+      const whatsappUrl=`https://wa.me/5568992591250?text=${encodeURIComponent(mensagemWhatsApp)}`;
       cart=[];
       checkoutStep='cart';
       checkoutType='pickup';
@@ -221,6 +250,7 @@
       updateCart();
       closeOverlay('cart-overlay');
       showToast(orderId?`Pedido #${orderId} enviado para a cozinha`:'Pedido enviado para a cozinha');
+      window.location.href=whatsappUrl;
     }catch(error){
       console.error('Erro ao enviar pedido ao Supabase:',error);
       showToast(error.message||'Não foi possível enviar o pedido. Tente novamente.');
