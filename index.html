@@ -278,6 +278,7 @@
       const {data,error}=await db.rpc('criar_pedido',{p_pedido:pedido});
       if(error)throw error;
       const orderId=Array.isArray(data)&&data[0]?data[0].order_id:null;
+      const deliveryCode=Array.isArray(data)&&data[0]?data[0].delivery_code:null;
       const totalPedido=cart.reduce((sum,item)=>sum+item.price*item.qty,0);
       const tipoPedidoLabel={delivery:'Entrega',pickup:'Retirada',local:'Comer no local'}[checkoutType]||checkoutType;
       const pagamentoPedidoLabel={pix:'Pix',card:'Cartão',cash:'Dinheiro'}[checkoutPayment]||pedido.payment_method||'A confirmar';
@@ -291,6 +292,8 @@
       const mensagemWhatsApp=[
         '🍕 *NOVO PEDIDO - DELIVERY LV*',
         orderId?`*Pedido #${orderId}*`:'',
+        deliveryCode?`🔐 *Código de entrega: ${deliveryCode}*`:'',
+        deliveryCode?'⚠️ Informe este código ao entregador somente quando receber o pedido.':'',
         '',
         `👤 Cliente: ${customerName}`,
         `📦 Tipo: ${tipoPedidoLabel}`,
@@ -311,7 +314,7 @@
       customerAddress='';
       updateCart();
       closeOverlay('cart-overlay');
-      showToast(orderId?`Pedido #${orderId} enviado para a cozinha`:'Pedido enviado para a cozinha');
+      showToast(deliveryCode?`Pedido #${orderId} criado · Código de entrega ${deliveryCode}`:orderId?`Pedido #${orderId} enviado para a cozinha`:'Pedido enviado para a cozinha');
       window.location.href=whatsappUrl;
     }catch(error){
       console.error('Erro ao enviar pedido ao Supabase:',error);
