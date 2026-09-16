@@ -110,18 +110,25 @@
   .flavor-grid{max-height:280px;overflow:auto;padding:2px;scrollbar-width:thin}.flavor-grid .option{min-height:58px}.flavor-grid .option.selected{box-shadow:inset 3px 0 var(--orange)}
   @media(max-width:520px){.flavor-grid{grid-template-columns:1fr;max-height:300px}}
 </style>
+
+<style id="temporary-hide-voice-ai">
+  #voice-toggle,#voice-panel{display:none!important}
+  .open-status.closed{color:#ffb2a3}
+  .open-status.closed .status-dot{background:#ff8f79;box-shadow:0 0 0 4px #ff8f7920}
+  body.store-closed #continue-order{opacity:.55}
+</style>
 </head>
 <body>
   <div class="shell">
-    <header class="topbar"><div class="topbar-inner"><a class="brand" href="#pizzas" aria-label="Delivery LV início"><span class="brand-mark">LV</span><span class="brand-copy"><strong>DELIVERY</strong><small>pizzaria & esfiharia</small></span></a><div class="top-actions"><span class="open-status"><i class="status-dot"></i>Aberto agora</span><button class="icon-btn" id="open-cart" aria-label="Abrir carrinho"><i data-lucide="shopping-bag"></i><span class="count" id="cart-count">0</span></button></div></div></header>
+    <header class="topbar"><div class="topbar-inner"><a class="brand" href="#pizzas" aria-label="Delivery LV início"><span class="brand-mark">LV</span><span class="brand-copy"><strong>DELIVERY</strong><small>pizzaria & esfiharia</small></span></a><div class="top-actions"><span class="open-status" id="store-status"><i class="status-dot"></i><span id="store-status-text">Verificando...</span></span><button class="icon-btn" id="open-cart" aria-label="Abrir carrinho"><i data-lucide="shopping-bag"></i><span class="count" id="cart-count">0</span></button></div></div></header>
     <main>
-      <section class="hero"><div><span class="eyebrow">Seu pedido, do seu jeito</span><h1>Pizza quente.<br><em>Pedido fácil.</em></h1><p>Escolha seus sabores, personalize cada detalhe e acompanhe seu pedido em poucos toques.</p></div><div class="hero-visual"><div class="hero-label"><span>feito na hora</span>Delivery LV</div></div></section>
+      <section class="hero"><div><span class="eyebrow">Seu pedido, do seu jeito</span><h1>Pizza quente.<br><em>Pedido fácil.</em></h1><p>Escolha seus sabores, personalize cada detalhe e finalize seu pedido em poucos toques.</p></div><div class="hero-visual"><div class="hero-label"><span>feito na hora</span>Delivery LV</div></div></section>
       <div class="menu-layout"><nav class="categories" aria-label="Categorias"><span class="category-kicker">Cardápio</span><button class="category active" data-target="pizzas"><i data-lucide="pizza"></i>Pizzas</button><button class="category" data-target="esfirras"><i data-lucide="croissant"></i>Esfirras</button><button class="category" data-target="bebidas"><i data-lucide="cup-soda"></i>Bebidas</button></nav><div class="menu-sections">
         <section class="section" id="pizzas"><div class="section-head"><div><span class="eyebrow">Escolha o tamanho</span><h2>Pizzas</h2></div><p>Monte sua combinação</p></div><div class="sizes"><div class="size"><strong>Pequena</strong><b>R$37,00</b><span>1 sabor</span></div><div class="size"><strong>Média</strong><b>R$47,00</b><span>2 sabores</span></div><div class="size"><strong>Grande</strong><b>R$65,00</b><span>2 sabores</span></div></div><div class="product-grid" id="pizza-grid"></div></section>
         <section class="section" id="esfirras"><div class="section-head"><div><span class="eyebrow">Salgadas e doces</span><h2>Esfirras</h2></div><p>Escolha suas favoritas</p></div><div class="subsection">Produtos da casa</div><div id="savory-list"></div><div class="subsection">Doces</div><div id="sweet-list"></div></section>
         <section class="section" id="bebidas"><div class="section-head"><div><span class="eyebrow">Para acompanhar</span><h2>Bebidas</h2></div></div><div id="drink-list"></div></section>
       </div></div>
-      <footer class="contact"><div><strong>Delivery LV</strong><span>Aberto todos os dias para deixar seu momento mais gostoso.</span></div><div>Pedidos pelo telefone<br><a href="tel:+5568992591250">(68) 99259-1250</a></div></footer>
+      <footer class="contact"><div><strong>Delivery LV</strong><span>Faça seu pedido pelo cardápio online da Delivery LV.</span></div><div>Pedidos pelo telefone<br><a href="tel:+5568992591250">(68) 99259-1250</a></div></footer>
     </main>
     <button class="voice-button" id="voice-toggle" aria-label="Abrir assistente por voz"><i data-lucide="mic"></i></button><div class="voice-panel" id="voice-panel"><p>Olá! O que você gostaria de pedir?</p><div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
     <div class="cart-bar" id="cart-bar"><div><strong id="cart-summary">Seu pedido está vazio</strong><small>Toque para revisar</small></div><button id="bar-cart">Ver pedido <i data-lucide="arrow-right"></i></button></div>
@@ -152,10 +159,23 @@
     productResult.data.forEach(product=>{const slug=slugByCategoryId.get(product.category_id);if(slug)productLookup.set(`${slug}|${product.name}`,product.id)});
     return productLookup;
   }
-  let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogPizzaSizes=[], catalogEdges=[], checkoutType='pickup', checkoutPayment='pix', checkoutStep='cart', customerName='', customerPhone='', customerAddress='';
+  let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogPizzaSizes=[], catalogEdges=[], checkoutType='pickup', checkoutPayment='pix', checkoutStep='cart', customerName='', customerPhone='', customerAddress='', storeIsOpen=false, storeStatusReady=false;
   const money=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const escapeCatalogText=value=>String(value??'').replace(/[&<>\"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[char]));
   const categoryIcon=slug=>({pizzas:'pizza',esfirras:'croissant',bebidas:'cup-soda'}[slug]||'utensils');
+  function applyStoreStatus(){
+    const host=document.querySelector('#store-status'),text=document.querySelector('#store-status-text');
+    if(text)text.textContent=storeStatusReady?(storeIsOpen?'Aberto agora':'Fechado agora'):'Status indisponível';
+    host?.classList.toggle('closed',!storeIsOpen);document.body.classList.toggle('store-closed',!storeIsOpen);
+  }
+  async function loadStoreStatus(){
+    try{
+      const{data,error}=await db.from('store_settings').select('is_open').eq('id',1).single();
+      if(error)throw error;storeIsOpen=Boolean(data?.is_open);storeStatusReady=true;applyStoreStatus();return true;
+    }catch(error){
+      console.error('Erro ao carregar status da loja:',error);storeIsOpen=false;storeStatusReady=false;applyStoreStatus();return false;
+    }
+  }
   const pizzaImage="https://images.unsplash.com/photo-1594007654729-407eedc4be65?auto=format&fit=crop&w=360&q=80";
   const categoryForProduct=product=>catalogCategories.find(category=>category.id===product?.category_id);
   const normalizeSizeName=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -220,7 +240,7 @@
       db.from('pizza_edges').select('name,price,active,sort_order').eq('active',true).order('sort_order')
     ]);
     if(categoryError||productError||sizeError||pizzaSizeError||edgeError)throw categoryError||productError||sizeError||pizzaSizeError||edgeError;
-    catalogCategories=categories||[];catalogProducts=products||[];catalogProductSizes=sizeRows||[];catalogPizzaSizes=pizzaSizeRows||[];catalogEdges=edgeRows||[];productLookup=null;await loadProductLookup();renderCatalog()
+    catalogCategories=categories||[];catalogProducts=products||[];catalogProductSizes=sizeRows||[];catalogPizzaSizes=pizzaSizeRows||[];catalogEdges=edgeRows||[];productLookup=null;await loadProductLookup();renderCatalog();await loadStoreStatus()
   }
   function openProduct(productId){
     const product=catalogProducts.find(item=>String(item.id)===String(productId));if(!product)return;
@@ -255,6 +275,8 @@
   function updateCart(){const qty=cart.reduce((sum,item)=>sum+item.qty,0),total=cart.reduce((sum,item)=>sum+item.price*item.qty,0);document.querySelector('#cart-count').textContent=qty;document.querySelector('#cart-summary').textContent=qty?`Ver pedido · ${money(total)}`:'Seu pedido está vazio';document.querySelector('#cart-bar').classList.toggle('visible',qty>0);renderCart()}
   async function sendOrderToOperation(){
     if(!cart.length)return;
+    const storeStatusOk=await loadStoreStatus();
+    if(!storeStatusOk||!storeIsOpen){showToast(storeStatusReady?'A loja está fechada no momento':'Não foi possível confirmar se a loja está aberta');return}
     customerName=document.querySelector('#customer-name')?.value.trim()||customerName;
     customerPhone=document.querySelector('#customer-phone')?.value.trim()||customerPhone;
     customerAddress=document.querySelector('#customer-address')?.value.trim()||customerAddress;
@@ -360,7 +382,7 @@
   document.addEventListener('click',event=>{const configurable=event.target.closest('[data-configure-product]');if(configurable)openProduct(configurable.dataset.configureProduct);const quick=event.target.closest('[data-quick]');if(quick)addQuick(quick.dataset.quick,Number(quick.dataset.price),quick.dataset.category,quick.dataset.productId);const close=event.target.closest('[data-close]');if(close)closeOverlay(close.dataset.close);if(event.target.classList.contains('overlay'))event.target.classList.remove('show');const gpsBtn=event.target.closest('#gps-button');if(gpsBtn){event.preventDefault();getLocationFromGPS()}});
   document.querySelector('#open-cart').onclick=()=>{renderCart();document.querySelector('#cart-overlay').classList.add('show')};document.querySelector('#bar-cart').onclick=()=>{renderCart();document.querySelector('#cart-overlay').classList.add('show')};document.querySelector('#voice-toggle').onclick=()=>document.querySelector('#voice-panel').classList.toggle('show');
   document.querySelectorAll('.category').forEach(button=>button.onclick=()=>{document.querySelectorAll('.category').forEach(item=>item.classList.remove('active'));button.classList.add('active');document.querySelector('#'+button.dataset.target).scrollIntoView({behavior:'smooth',block:'start'})});
-  lucide.createIcons();updateCart();loadCatalog().catch(error=>{console.error('Erro ao carregar catálogo do Supabase:',error);showToast('Não foi possível carregar o cardápio real')});
+  lucide.createIcons();updateCart();loadCatalog().catch(error=>{console.error('Erro ao carregar catálogo do Supabase:',error);showToast('Não foi possível carregar o cardápio real')});window.setInterval(()=>loadStoreStatus(),30000);
 </script>
   <script>
     document.addEventListener('click',event=>{
