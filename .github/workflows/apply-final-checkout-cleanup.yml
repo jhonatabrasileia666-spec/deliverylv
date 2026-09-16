@@ -1,0 +1,36 @@
+name: Apply checkout phone and text cleanup
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-final-checkout-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply checkout cleanup
+        run: python .github/scripts/final-checkout-cleanup.py
+      - name: Validate result
+        run: |
+          grep -q 'customer_phone:customerPhone' index.html
+          grep -q 'id="customer-phone"' index.html
+          grep -q 'Telefone / WhatsApp' index.html
+          grep -q 'Como você quer receber?' index.html
+          grep -q 'phoneDigits.length<8' index.html
+          ! grep -q 'Como vocÃª quer receber?' index.html
+      - name: Commit fix and remove temporary automation
+        run: |
+          rm -f .github/scripts/final-checkout-cleanup.py .github/workflows/apply-final-checkout-cleanup.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: collect customer phone and clean checkout text'
+          git push
