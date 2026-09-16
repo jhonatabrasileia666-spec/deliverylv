@@ -1,0 +1,114 @@
+name: Add pizza size filter
+
+on:
+  push:
+    paths:
+      - '.github/workflows/add-pizza-size-filter.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Patch storefront pizza size filter
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('index.html')
+          text=path.read_text(encoding='utf-8')
+
+          def replace_once(old,new,label):
+              global text
+              count=text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected 1 match, found {count}')
+              text=text.replace(old,new,1)
+
+          replace_once(
+              ".size:first-child{border-color:#ff5a1680;background:#241710}\n    .product-grid",
+              ".size:first-child{border-color:#ff5a1680;background:#241710}\n    .pizza-size-filter-wrap{margin:0 0 18px}.pizza-size-filter-label{display:block;margin-bottom:8px;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em}.pizza-size-filter{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pizza-size-choice{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:9px 10px;background:#1a1715;border:1px solid var(--line);border-radius:12px;color:var(--muted);transition:.2s}.pizza-size-choice strong{font-family:\"Barlow Condensed\";font-size:25px;line-height:1;color:var(--cream)}.pizza-size-choice span{font-size:10px;font-weight:800}.pizza-size-choice.active{background:var(--orange);border-color:var(--orange);color:#1b110b}.pizza-size-choice.active strong{color:#1b110b}.pizza-size-choice:hover{border-color:var(--orange)}\n    .product-grid",
+              'css'
+          )
+
+          replace_once(
+              "let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogPizzaSizes=[], catalogEdges=[], checkoutType='pickup', checkoutPayment='pix', checkoutStep='cart', customerName='', customerPhone='', customerAddress='', storeIsOpen=false, storeStatusReady=false;",
+              "let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogPizzaSizes=[], catalogEdges=[], selectedPizzaCatalogSize='Pequena', checkoutType='pickup', checkoutPayment='pix', checkoutStep='cart', customerName='', customerPhone='', customerAddress='', storeIsOpen=false, storeStatusReady=false;",
+              'state'
+          )
+
+          replace_once(
+              "  function productEdges(){const rows=catalogEdges.length?catalogEdges.map(edge=>[edge.name,Number(edge.price||0)]):edges;return rows.filter(edge=>edge[0])}",
+              "  const pizzaCatalogSizeChoices=[['Pequena','P'],['Média','M'],['Grande','G']];\n  function pizzaCatalogSizeRow(product,sizeName=selectedPizzaCatalogSize){return productSizesFor(product).find(size=>normalizeSizeName(size.name)===normalizeSizeName(sizeName))||null}\n  function pizzaCatalogSizeFilter(){return `<div class=\"pizza-size-filter-wrap\"><span class=\"pizza-size-filter-label\">Tamanho da pizza</span><div class=\"pizza-size-filter\" role=\"group\" aria-label=\"Escolha o tamanho da pizza\">${pizzaCatalogSizeChoices.map(([name,short])=>`<button type=\"button\" class=\"pizza-size-choice ${normalizeSizeName(selectedPizzaCatalogSize)===normalizeSizeName(name)?'active':''}\" data-pizza-catalog-size=\"${name}\"><strong>${short}</strong><span>${name}</span></button>`).join('')}</div></div>`}\n  function productEdges(){const rows=catalogEdges.length?catalogEdges.map(edge=>[edge.name,Number(edge.price||0)]):edges;return rows.filter(edge=>edge[0])}",
+              'helpers'
+          )
+
+          replace_once(
+              "    const precoInicial=productStartingPrice(product);\n    const priceLabel=usesSizes&&sizeRows.length?`a partir de ${money(precoInicial)}`:money(precoInicial);",
+              "    const selectedPizzaRow=categorySlugFor(product)==='pizzas'?pizzaCatalogSizeRow(product):null;\n    const precoInicial=selectedPizzaRow?Number(selectedPizzaRow.price||0)+acrescimo:productStartingPrice(product);\n    const priceLabel=selectedPizzaRow?money(precoInicial):(usesSizes&&sizeRows.length?`a partir de ${money(precoInicial)}`:money(precoInicial));",
+              'card price'
+          )
+
+          old_render="""    sectionsHost.innerHTML=visibleCategories.map((category,index)=>{
+      const products=catalogProducts.filter(product=>String(product.category_id)===String(category.id));
+      return `<section class=\"section ${index===0?'active':''}\" id=\"${escapeCatalogText(category.slug)}\"><div class=\"section-head\"><div><span class=\"eyebrow\">Escolha seu produto</span><h2>${escapeCatalogText(category.name||category.slug)}</h2></div><p>${products.length} ${products.length===1?'opção':'opções'}</p></div><div class=\"product-grid\">${products.map(catalogCard).join('')}</div></section>`;
+    }).join('');"""
+          new_render="""    sectionsHost.innerHTML=visibleCategories.map((category,index)=>{
+      const categoryProducts=catalogProducts.filter(product=>String(product.category_id)===String(category.id));
+      const isPizza=category.slug==='pizzas';
+      const products=isPizza?categoryProducts.filter(product=>pizzaCatalogSizeRow(product)):categoryProducts;
+      const sizeFilter=isPizza?pizzaCatalogSizeFilter():'';
+      const eyebrow=isPizza?'Escolha o tamanho':'Escolha seu produto';
+      return `<section class=\"section ${index===0?'active':''}\" id=\"${escapeCatalogText(category.slug)}\"><div class=\"section-head\"><div><span class=\"eyebrow\">${eyebrow}</span><h2>${escapeCatalogText(category.name||category.slug)}</h2></div><p>${products.length} ${products.length===1?'opção':'opções'}</p></div>${sizeFilter}<div class=\"product-grid\">${products.map(catalogCard).join('')}</div></section>`;
+    }).join('');"""
+          replace_once(old_render,new_render,'render catalog')
+
+          replace_once(
+              "    selected={id:product.id,name:product.name,ingredients:product.description||'',category,pricingMode,sizes:configuredSizes,size:0,basePrice:Number(product.base_price||0),edge:null,qty:1,note:'',priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),image:product.image_url||pizzaImage,flavors:category==='pizzas'?[flavorInfo(product)]:[]};",
+              "    const initialSizeIndex=category==='pizzas'?configuredSizes.findIndex(size=>normalizeSizeName(size.name)===normalizeSizeName(selectedPizzaCatalogSize)):0;\n    selected={id:product.id,name:product.name,ingredients:product.description||'',category,pricingMode,sizes:configuredSizes,size:initialSizeIndex>=0?initialSizeIndex:0,basePrice:Number(product.base_price||0),edge:null,qty:1,note:'',priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),image:product.image_url||pizzaImage,flavors:category==='pizzas'?[flavorInfo(product)]:[]};",
+              'open product initial size'
+          )
+
+          replace_once(
+              "  document.addEventListener('click',event=>{const configurable=event.target.closest('[data-configure-product]');",
+              "  document.addEventListener('click',event=>{const pizzaSizeChoice=event.target.closest('[data-pizza-catalog-size]');if(pizzaSizeChoice){selectedPizzaCatalogSize=pizzaSizeChoice.dataset.pizzaCatalogSize;renderCatalog();return}const configurable=event.target.closest('[data-configure-product]');",
+              'click handler'
+          )
+
+          path.write_text(text,encoding='utf-8')
+          PY
+      - name: Validate inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          text=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',text,re.S|re.I)
+          for i,code in enumerate(scripts):
+              if not code.strip():
+                  continue
+              tmp=Path(f'/tmp/storefront-{i}.js')
+              tmp.write_text(code,encoding='utf-8')
+              subprocess.run(['node','--check',str(tmp)],check=True)
+          print('Inline JavaScript valid')
+          PY
+      - name: Verify feature markers
+        run: |
+          grep -q 'data-pizza-catalog-size' index.html
+          grep -q "selectedPizzaCatalogSize='Pequena'" index.html
+          grep -q 'pizzaCatalogSizeRow' index.html
+      - name: Commit feature and remove temporary workflow
+        run: |
+          rm -f .github/workflows/add-pizza-size-filter.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: filter pizza cards by selected size'
+          git push
