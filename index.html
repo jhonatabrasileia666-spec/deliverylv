@@ -29,7 +29,7 @@
   </style>
   <style>
     .menu-sections .section{display:none}
-    .menu-sections #pizzas{display:block}
+    .menu-sections .section.active{display:block}
     .hero>div:first-child{animation:hero-copy-in .7s cubic-bezier(.2,.8,.2,1) both}
     .hero-visual{animation:hero-visual-in .85s cubic-bezier(.2,.8,.2,1) .12s both}
     .hero-visual:before{content:"";position:absolute;z-index:1;inset:0;background:linear-gradient(110deg,transparent 35%,#fff4 49%,transparent 63%);transform:translateX(-120%);animation:hero-shine 1.3s ease .7s both;pointer-events:none}
@@ -149,6 +149,8 @@
   }
   let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogEdges=[], checkoutType='pickup', checkoutPayment='pix', checkoutStep='cart', customerName='', customerAddress='';
   const money=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const escapeCatalogText=value=>String(value??'').replace(/[&<>\"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[char]));
+  const categoryIcon=slug=>({pizzas:'pizza',esfirras:'croissant',bebidas:'cup-soda'}[slug]||'utensils');
   const pizzaImage="https://images.unsplash.com/photo-1594007654729-407eedc4be65?auto=format&fit=crop&w=360&q=80";
   const categoryForProduct=product=>catalogCategories.find(category=>category.id===product?.category_id);
   const categorySlugFor=product=>categoryForProduct(product)?.slug||'';
@@ -160,11 +162,17 @@
   }
   function productEdges(){const rows=catalogEdges.length?catalogEdges.map(edge=>[edge.name,Number(edge.price||0)]):edges;return rows.filter(edge=>edge[0])}
   function productStartingPrice(product){const sizeRows=productSizesFor(product);const base=(product.pricing_mode==='sizes'||sizeRows.length)&&sizeRows.length?Math.min(...sizeRows.map(size=>Number(size.price||0))):Number(product.base_price||0);return base+Number(product.price_addition||0)}
-  function pizzaCard(product){
+  function catalogCard(product){
     const acrescimo=Number(product.price_addition||0);
     const badge=acrescimo>0?`<span class="product-badge">ACRÉSCIMO: ${money(acrescimo)}</span>`:'';
+    const sizeRows=productSizesFor(product);
+    const usesSizes=product.pricing_mode==='sizes'||sizeRows.length>0;
     const precoInicial=productStartingPrice(product);
-    return `<article class="product" data-configure-product="${product.id}"><div class="product-copy">${badge}<h3>${product.name}</h3><p>${product.description||'Produto preparado na hora.'}</p><strong class="price">a partir de ${money(precoInicial)}</strong></div><img class="product-image" src="${product.image_url||pizzaImage}" alt="${product.name}" loading="lazy"></article>`
+    const priceLabel=usesSizes&&sizeRows.length?`a partir de ${money(precoInicial)}`:money(precoInicial);
+    const name=escapeCatalogText(product.name||'Produto');
+    const description=escapeCatalogText(product.description||'Produto preparado na hora.');
+    const image=product.image_url||pizzaImage;
+    return `<article class="product" data-configure-product="${product.id}"><div class="product-copy">${badge}<h3>${name}</h3><p>${description}</p><strong class="price">${priceLabel}</strong></div><img class="product-image" src="${image}" alt="${name}" loading="lazy"></article>`
   }
   function simpleCard(product,category){
     const sizeRows=productSizesFor(product), configurable=product.pricing_mode==='sizes'||sizeRows.length>0||product.allow_edges;
@@ -175,27 +183,21 @@
     return `<div class="simple-card">${image}<div class="simple-card-copy"><h3>${product.name}</h3><p>${product.description||'Escolha sua quantidade no pedido'}</p></div><strong class="simple-price">${priceLabel}</strong>${button}</div>`
   }
   function renderCatalog(){
-    const byCategory=new Map(catalogCategories.map(category=>[category.slug,[]]));
-    catalogProducts.forEach(product=>{const category=categoryForProduct(product);if(category){if(!byCategory.has(category.slug))byCategory.set(category.slug,[]);byCategory.get(category.slug).push(product)}});
-    const pizzasFromDb=byCategory.get('pizzas')||[];
-    document.querySelector('#pizza-grid').innerHTML=pizzasFromDb.map(pizzaCard).join('')||'<div class="empty">Nenhuma pizza cadastrada.</div>';
-    document.querySelector('#savory-list').innerHTML=(byCategory.get('esfirras')||[]).map(product=>simpleCard(product,'esfirras')).join('')||'<div class="empty">Nenhuma esfirra cadastrada.</div>';
-    document.querySelector('#sweet-list').innerHTML='';
-    document.querySelector('#drink-list').innerHTML=(byCategory.get('bebidas')||[]).map(product=>simpleCard(product,'bebidas')).join('')||'<div class="empty">Nenhuma bebida cadastrada.</div>';
-
-    const coreSlugs=new Set(['pizzas','esfirras','bebidas']);
-    const nav=document.querySelector('.categories');
-    const sections=document.querySelector('.menu-sections');
-    nav.querySelectorAll('[data-dynamic-category]').forEach(node=>node.remove());
-    sections.querySelectorAll('[data-dynamic-section]').forEach(node=>node.remove());
-    catalogCategories.filter(category=>!coreSlugs.has(category.slug)).forEach(category=>{
-      const target=`category-${category.slug}`;
-      const products=byCategory.get(category.slug)||[];
-      nav.insertAdjacentHTML('beforeend',`<button class="category" data-dynamic-category data-target="${target}"><i data-lucide="utensils"></i>${category.name||category.slug}</button>`);
-      sections.insertAdjacentHTML('beforeend',`<section class="section" id="${target}" data-dynamic-section><div class="section-head"><div><span class="eyebrow">Cardápio</span><h2>${category.name||category.slug}</h2></div><p>Escolha seu favorito</p></div><div id="category-list-${category.slug}">${products.map(product=>simpleCard(product,category.slug)).join('')||'<div class="empty">Nenhum produto cadastrado.</div>'}</div></section>`);
-    });
-    document.querySelectorAll('.category').forEach(button=>button.onclick=()=>{document.querySelectorAll('.category').forEach(item=>item.classList.remove('active'));button.classList.add('active');const target=button.dataset.target;document.querySelectorAll('.menu-sections .section').forEach(section=>section.style.display=section.id===target?'block':'none');document.querySelector('#'+target)?.scrollIntoView({behavior:'smooth',block:'start'})});
-    lucide.createIcons()
+    const categoriesHost=document.querySelector('.categories');
+    const sectionsHost=document.querySelector('.menu-sections');
+    if(!categoriesHost||!sectionsHost)return;
+    const visibleCategories=catalogCategories.filter(category=>catalogProducts.some(product=>String(product.category_id)===String(category.id)));
+    if(!visibleCategories.length){
+      categoriesHost.innerHTML='<span class="category-kicker">Cardápio</span>';
+      sectionsHost.innerHTML='<div class="empty">Nenhum produto disponível no momento.</div>';
+      return;
+    }
+    categoriesHost.innerHTML='<span class="category-kicker">Cardápio</span>'+visibleCategories.map((category,index)=>`<button class="category ${index===0?'active':''}" data-target="${escapeCatalogText(category.slug)}"><i data-lucide="${categoryIcon(category.slug)}"></i>${escapeCatalogText(category.name||category.slug)}</button>`).join('');
+    sectionsHost.innerHTML=visibleCategories.map((category,index)=>{
+      const products=catalogProducts.filter(product=>String(product.category_id)===String(category.id));
+      return `<section class="section ${index===0?'active':''}" id="${escapeCatalogText(category.slug)}"><div class="section-head"><div><span class="eyebrow">Escolha seu produto</span><h2>${escapeCatalogText(category.name||category.slug)}</h2></div><p>${products.length} ${products.length===1?'opção':'opções'}</p></div><div class="product-grid">${products.map(catalogCard).join('')}</div></section>`;
+    }).join('');
+    lucide.createIcons();
   }
   async function loadCatalog(){
     const[{data:categories,error:categoryError},{data:products,error:productError},{data:sizeRows,error:sizeError},{data:edgeRows,error:edgeError}]=await Promise.all([
@@ -328,10 +330,13 @@
   lucide.createIcons();updateCart();loadCatalog().catch(error=>{console.error('Erro ao carregar catálogo do Supabase:',error);showToast('Não foi possível carregar o cardápio real')});
 </script>
   <script>
-    document.querySelectorAll('.category').forEach(tab=>tab.addEventListener('click',()=>{
+    document.addEventListener('click',event=>{
+      const tab=event.target.closest('.category[data-target]');
+      if(!tab)return;
       const target=tab.dataset.target;
-      document.querySelectorAll('.menu-sections .section').forEach(section=>section.style.display=section.id===target?'block':'none');
-    },true));
+      document.querySelectorAll('.category[data-target]').forEach(item=>item.classList.toggle('active',item===tab));
+      document.querySelectorAll('.menu-sections .section').forEach(section=>section.classList.toggle('active',section.id===target));
+    });
     const topbar=document.querySelector('.topbar');
     window.addEventListener('scroll',()=>topbar.classList.toggle('scrolled',window.scrollY>24),{passive:true});
   </script>
