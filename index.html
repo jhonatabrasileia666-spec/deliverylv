@@ -188,10 +188,11 @@
   const flavorProduct=id=>catalogProducts.find(product=>String(product.id)===String(id));
   const promotionDiscount=product=>Math.max(0,Math.min(99.99,Number(product?.promotion_discount||0)));
   const productOnPromotion=product=>Boolean(product?.promotion_active)&&promotionDiscount(product)>0;
-  const applyProductPromotion=(product,value)=>productOnPromotion(product)?Math.round((Number(value||0)*(1-promotionDiscount(product)/100))*100)/100:Number(value||0);
+  const promotionApplies=(product,sizeName='')=>{if(!productOnPromotion(product))return false;const target=String(product?.promotion_size||'').trim();if(!target)return true;return normalizeSizeName(target)===normalizeSizeName(sizeName)};
+  const applyProductPromotion=(product,value,sizeName='')=>promotionApplies(product,sizeName)?Math.round((Number(value||0)*(1-promotionDiscount(product)/100))*100)/100:Number(value||0);
   const flavorInfo=product=>({id:product.id,name:product.name,priceAddition:Number(product.price_addition||0)});
   const pizzaFlavorProducts=()=>catalogProducts.filter(product=>categorySlugFor(product)==='pizzas');
-  const flavorSizePrice=(flavorId,sizeName)=>{const row=catalogProductSizes.find(size=>String(size.product_id)===String(flavorId)&&normalizeSizeName(size.name)===normalizeSizeName(sizeName)&&size.active!==false);const product=flavorProduct(flavorId);const regular=Number(row?.price||0)+Number(product?.price_addition||0);return applyProductPromotion(product,regular)};
+  const flavorSizePrice=(flavorId,sizeName)=>{const row=catalogProductSizes.find(size=>String(size.product_id)===String(flavorId)&&normalizeSizeName(size.name)===normalizeSizeName(sizeName)&&size.active!==false);const product=flavorProduct(flavorId);const regular=Number(row?.price||0)+Number(product?.price_addition||0);return applyProductPromotion(product,regular,sizeName)};
   const categorySlugFor=product=>categoryForProduct(product)?.slug||'';
   function productSizesFor(product){
     const own=catalogProductSizes.filter(size=>String(size.product_id)===String(product?.id)&&size.active!==false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
@@ -204,18 +205,19 @@
   function pizzaCatalogSizeFilter(){return `<div class="pizza-size-filter-wrap"><span class="pizza-size-filter-label">Tamanho da pizza</span><div class="pizza-size-filter" role="group" aria-label="Escolha o tamanho da pizza">${pizzaCatalogSizeChoices.map(([name,short])=>`<button type="button" class="pizza-size-choice ${normalizeSizeName(selectedPizzaCatalogSize)===normalizeSizeName(name)?'active':''}" data-pizza-catalog-size="${name}"><strong>${short}</strong><span>${name}</span></button>`).join('')}</div></div>`}
   function productEdges(){const rows=catalogEdges.length?catalogEdges.map(edge=>[edge.name,Number(edge.price||0)]):edges;return rows.filter(edge=>edge[0])}
   function productRegularStartingPrice(product){const sizeRows=productSizesFor(product);const base=(product.pricing_mode==='sizes'||sizeRows.length)&&sizeRows.length?Math.min(...sizeRows.map(size=>Number(size.price||0))):Number(product.base_price||0);return base+Number(product.price_addition||0)}
-  function productStartingPrice(product){return applyProductPromotion(product,productRegularStartingPrice(product))}
+  function productStartingPrice(product){const sizeRows=productSizesFor(product),addition=Number(product.price_addition||0);if((product.pricing_mode==='sizes'||sizeRows.length)&&sizeRows.length)return Math.min(...sizeRows.map(size=>applyProductPromotion(product,Number(size.price||0)+addition,size.name)));return applyProductPromotion(product,Number(product.base_price||0)+addition,'')}
   function catalogCard(product){
     const acrescimo=Number(product.price_addition||0);
-    const promo=productOnPromotion(product),discount=promotionDiscount(product);
-    const badges=(promo?`<span class="product-badge promo-badge">PROMO -${Number(discount.toFixed(2))}%</span>`:'')+(acrescimo>0?`<span class="product-badge">ACRÉSCIMO: ${money(acrescimo)}</span>`:'');
     const sizeRows=productSizesFor(product);
     const usesSizes=product.pricing_mode==='sizes'||sizeRows.length>0;
     const selectedPizzaRow=categorySlugFor(product)==='pizzas'?pizzaCatalogSizeRow(product):null;
+    const activePromo=selectedPizzaRow?promotionApplies(product,selectedPizzaRow.name):(!usesSizes&&promotionApplies(product,''));
+    const discount=promotionDiscount(product);
+    const badges=(activePromo?`<span class="product-badge promo-badge">PROMO -${Number(discount.toFixed(2))}%${selectedPizzaRow?` · ${escapeCatalogText(selectedPizzaRow.name)}`:''}</span>`:'')+(acrescimo>0?`<span class="product-badge">ACRÉSCIMO: ${money(acrescimo)}</span>`:'');
     const regularPrice=selectedPizzaRow?Number(selectedPizzaRow.price||0)+acrescimo:productRegularStartingPrice(product);
-    const precoInicial=applyProductPromotion(product,regularPrice);
+    const precoInicial=selectedPizzaRow?applyProductPromotion(product,regularPrice,selectedPizzaRow.name):productStartingPrice(product);
     const prefix=!selectedPizzaRow&&usesSizes&&sizeRows.length?'a partir de ':'';
-    const priceLabel=promo?`${prefix}<span class="promo-price-old"><del>${money(regularPrice)}</del></span>${money(precoInicial)}`:`${prefix}${money(precoInicial)}`;
+    const priceLabel=activePromo?`${prefix}<span class="promo-price-old"><del>${money(regularPrice)}</del></span>${money(precoInicial)}`:`${prefix}${money(precoInicial)}`;
     const name=escapeCatalogText(product.name||'Produto');
     const description=escapeCatalogText(product.description||'Produto preparado na hora.');
     const image=product.image_url||pizzaImage;
@@ -230,14 +232,14 @@
     return `<div class="simple-card">${image}<div class="simple-card-copy"><h3>${product.name}</h3><p>${product.description||'Escolha sua quantidade no pedido'}</p></div><strong class="simple-price">${priceLabel}</strong>${button}</div>`
   }
   function promotionCard(product){
-    const category=categorySlugFor(product);
     const sizeRows=productSizesFor(product);
-    const chosenRow=category==='pizzas'?(pizzaCatalogSizeRow(product)||sizeRows[0]):null;
+    const promoSize=String(product.promotion_size||'').trim();
+    const chosenRow=sizeRows.find(size=>normalizeSizeName(size.name)===normalizeSizeName(promoSize))||null;
     const regular=chosenRow?Number(chosenRow.price||0)+Number(product.price_addition||0):productRegularStartingPrice(product);
-    const promotional=applyProductPromotion(product,regular);
-    const sizeLabel=chosenRow?`Tamanho ${escapeCatalogText(chosenRow.name)}`:(sizeRows.length?'A partir de':'Preço promocional');
+    const promotional=applyProductPromotion(product,regular,chosenRow?.name||'');
+    const sizeLabel=chosenRow?`Tamanho ${escapeCatalogText(chosenRow.name)}`:'Preço promocional';
     const image=product.image_url||pizzaImage;
-    return `<button type="button" class="promo-card" data-configure-product="${product.id}" aria-label="Ver promoção de ${escapeCatalogText(product.name)}"><img src="${image}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()"><span class="promo-card-copy"><span class="promo-pill">-${Number(promotionDiscount(product).toFixed(2))}%</span><h3>${escapeCatalogText(product.name)}</h3><small>${sizeLabel}</small><span class="promo-prices"><del>${money(regular)}</del><strong>${money(promotional)}</strong></span></span></button>`;
+    return `<button type="button" class="promo-card" data-configure-product="${product.id}" ${chosenRow?`data-promotion-size="${escapeCatalogText(chosenRow.name)}"`:''} aria-label="Ver promoção de ${escapeCatalogText(product.name)}"><img src="${image}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()"><span class="promo-card-copy"><span class="promo-pill">-${Number(promotionDiscount(product).toFixed(2))}%</span><h3>${escapeCatalogText(product.name)}</h3><small>${sizeLabel}</small><span class="promo-prices"><del>${money(regular)}</del><strong>${money(promotional)}</strong></span></span></button>`;
   }
   function renderPromotions(){
     const host=document.querySelector('#promo-showcase'),track=document.querySelector('#promo-track');
@@ -275,7 +277,7 @@
   async function loadCatalog(){
     const[{data:categories,error:categoryError},{data:products,error:productError},{data:sizeRows,error:sizeError},{data:pizzaSizeRows,error:pizzaSizeError},{data:edgeRows,error:edgeError}]=await Promise.all([
       db.from('categories').select('id,slug,name').eq('active',true).order('sort_order'),
-      db.from('products').select('id,category_id,name,description,base_price,price_addition,image_url,active,sort_order,pricing_mode,allow_edges,promotion_active,promotion_discount,promotion_sort_order').eq('active',true).order('sort_order'),
+      db.from('products').select('id,category_id,name,description,base_price,price_addition,image_url,active,sort_order,pricing_mode,allow_edges,promotion_active,promotion_discount,promotion_sort_order,promotion_size').eq('active',true).order('sort_order'),
       db.from('product_sizes').select('product_id,name,price,active,sort_order').eq('active',true).order('sort_order'),
       db.from('pizza_sizes').select('name,max_flavors,active,sort_order').eq('active',true).order('sort_order'),
       db.from('pizza_edges').select('name,price,active,sort_order').eq('active',true).order('sort_order')
@@ -283,20 +285,21 @@
     if(categoryError||productError||sizeError||pizzaSizeError||edgeError)throw categoryError||productError||sizeError||pizzaSizeError||edgeError;
     catalogCategories=categories||[];catalogProducts=products||[];catalogProductSizes=sizeRows||[];catalogPizzaSizes=pizzaSizeRows||[];catalogEdges=edgeRows||[];productLookup=null;await loadProductLookup();renderCatalog();await loadStoreStatus()
   }
-  function openProduct(productId){
+  function openProduct(productId,preferredSize=''){
     const product=catalogProducts.find(item=>String(item.id)===String(productId));if(!product)return;
     const category=categorySlugFor(product);
     const configuredSizes=productSizesFor(product);
     const pricingMode=(product.pricing_mode==='sizes'||configuredSizes.length)?'sizes':'fixed';
     if(pricingMode==='sizes'&&!configuredSizes.length){showToast('Este produto ainda não tem tamanhos disponíveis');return}
-    const initialSizeIndex=category==='pizzas'?configuredSizes.findIndex(size=>normalizeSizeName(size.name)===normalizeSizeName(selectedPizzaCatalogSize)):0;
-    selected={id:product.id,name:product.name,ingredients:product.description||'',category,pricingMode,sizes:configuredSizes,size:initialSizeIndex>=0?initialSizeIndex:0,basePrice:Number(product.base_price||0),edge:null,qty:1,note:'',priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),promotion_active:Boolean(product.promotion_active),promotion_discount:Number(product.promotion_discount||0),image:product.image_url||pizzaImage,flavors:category==='pizzas'?[flavorInfo(product)]:[]};
+    const requestedSize=preferredSize||(category==='pizzas'?selectedPizzaCatalogSize:'');
+    const initialSizeIndex=requestedSize?configuredSizes.findIndex(size=>normalizeSizeName(size.name)===normalizeSizeName(requestedSize)):0;
+    selected={id:product.id,name:product.name,ingredients:product.description||'',category,pricingMode,sizes:configuredSizes,size:initialSizeIndex>=0?initialSizeIndex:0,basePrice:Number(product.base_price||0),edge:null,qty:1,note:'',priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),promotion_active:Boolean(product.promotion_active),promotion_discount:Number(product.promotion_discount||0),promotion_size:product.promotion_size||'',image:product.image_url||pizzaImage,flavors:category==='pizzas'?[flavorInfo(product)]:[]};
     renderProduct();document.querySelector('#product-overlay').classList.add('show')
   }
   function currentPrice(){
     const sizeName=selected.sizes?.[selected.size]?.name;
     const base=selected.pricingMode==='sizes'?Number(selected.sizes[selected.size]?.price||0):Number(selected.basePrice||0);
-    const discountable=selected.category==='pizzas'&&selected.flavors?.length?Math.max(...selected.flavors.map(flavor=>flavorSizePrice(flavor.id,sizeName))):applyProductPromotion(selected,base+Number(selected.priceAddition||0));
+    const discountable=selected.category==='pizzas'&&selected.flavors?.length?Math.max(...selected.flavors.map(flavor=>flavorSizePrice(flavor.id,sizeName))):applyProductPromotion(selected,base+Number(selected.priceAddition||0),sizeName||'');
     return discountable+(selected.edge?Number(selected.edge[1]||0):0)
   }
   function renderProduct(){
@@ -470,7 +473,7 @@
   function getLocationFromGPS(){const gpsBtn=document.querySelector('#gps-button');if(!gpsBtn)return;gpsBtn.classList.add('loading');gpsBtn.disabled=true;gpsBtn.innerHTML='Localizando...';if(!navigator.geolocation){gpsBtn.classList.remove('loading');gpsBtn.disabled=false;gpsBtn.innerHTML='<i data-lucide="map-pin"></i> GPS';showToast('Geolocalização não disponível');lucide.createIcons();return}navigator.geolocation.getCurrentPosition(async position=>{try{const{latitude,longitude}=position.coords;const response=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);const data=await response.json();const addressInput=document.querySelector('#customer-address');if(addressInput){const rua=data.address?.road||data.address?.street||'';const numero=data.address?.house_number||'';const bairro=data.address?.neighborhood||data.address?.suburb||'';const cidade=data.address?.city||data.address?.town||'';let endereco='';if(rua||numero)endereco+=`${rua} ${numero}`.trim();if(bairro)endereco+=(endereco?', ':'')+bairro;if(cidade)endereco+=(endereco?', ':'')+cidade;if(!endereco||endereco.length<5)endereco=`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;addressInput.value=endereco;customerAddress=addressInput.value;showToast('Localização: '+endereco)}}catch(err){const{latitude,longitude}=position.coords;const addressInput=document.querySelector('#customer-address');if(addressInput){addressInput.value=`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;customerAddress=addressInput.value}showToast('Coordenadas obtidas')}gpsBtn.classList.remove('loading');gpsBtn.disabled=false;gpsBtn.innerHTML='<i data-lucide="map-pin"></i> GPS';lucide.createIcons()},error=>{console.error('GPS erro:',error);let msg='Erro ao obter localização';if(error.code===1)msg='Acesso à localização negado';else if(error.code===2)msg='Localização indisponível';else if(error.code===3)msg='GPS demorou muito';showToast(msg);gpsBtn.classList.remove('loading');gpsBtn.disabled=false;gpsBtn.innerHTML='<i data-lucide="map-pin"></i> GPS';lucide.createIcons()},{timeout:10000})}
   function closeOverlay(id){document.querySelector('#'+id).classList.remove('show')}
   function showToast(text){const toast=document.querySelector('#toast');toast.textContent=text;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2200)}
-  document.addEventListener('click',event=>{const pizzaSizeChoice=event.target.closest('[data-pizza-catalog-size]');if(pizzaSizeChoice){selectedPizzaCatalogSize=pizzaSizeChoice.dataset.pizzaCatalogSize;renderCatalog();return}const configurable=event.target.closest('[data-configure-product]');if(configurable)openProduct(configurable.dataset.configureProduct);const quick=event.target.closest('[data-quick]');if(quick)addQuick(quick.dataset.quick,Number(quick.dataset.price),quick.dataset.category,quick.dataset.productId);const close=event.target.closest('[data-close]');if(close)closeOverlay(close.dataset.close);if(event.target.classList.contains('overlay'))event.target.classList.remove('show');const gpsBtn=event.target.closest('#gps-button');if(gpsBtn){event.preventDefault();getLocationFromGPS()}});
+  document.addEventListener('click',event=>{const pizzaSizeChoice=event.target.closest('[data-pizza-catalog-size]');if(pizzaSizeChoice){selectedPizzaCatalogSize=pizzaSizeChoice.dataset.pizzaCatalogSize;renderCatalog();return}const configurable=event.target.closest('[data-configure-product]');if(configurable)openProduct(configurable.dataset.configureProduct,configurable.dataset.promotionSize||'');const quick=event.target.closest('[data-quick]');if(quick)addQuick(quick.dataset.quick,Number(quick.dataset.price),quick.dataset.category,quick.dataset.productId);const close=event.target.closest('[data-close]');if(close)closeOverlay(close.dataset.close);if(event.target.classList.contains('overlay'))event.target.classList.remove('show');const gpsBtn=event.target.closest('#gps-button');if(gpsBtn){event.preventDefault();getLocationFromGPS()}});
   document.querySelector('#open-cart').onclick=()=>{renderCart();document.querySelector('#cart-overlay').classList.add('show')};document.querySelector('#bar-cart').onclick=()=>{renderCart();document.querySelector('#cart-overlay').classList.add('show')};document.querySelector('#voice-toggle').onclick=()=>document.querySelector('#voice-panel').classList.toggle('show');
   document.querySelectorAll('.category').forEach(button=>button.onclick=()=>{document.querySelectorAll('.category').forEach(item=>item.classList.remove('active'));button.classList.add('active');document.querySelector('#'+button.dataset.target).scrollIntoView({behavior:'smooth',block:'start'})});
   lucide.createIcons();updateCart();loadCatalog().catch(error=>{console.error('Erro ao carregar catálogo do Supabase:',error);showToast('Não foi possível carregar o cardápio real')});window.setInterval(()=>loadStoreStatus(),30000);
