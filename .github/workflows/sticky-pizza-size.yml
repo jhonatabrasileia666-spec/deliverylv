@@ -1,4 +1,4 @@
-name: Sticky pizza size selector
+name: Fix sticky pizza size selector
 
 on:
   push:
@@ -17,22 +17,25 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Make P M G sticky
+      - name: Fix sticky scrolling container
         shell: python
         run: |
           from pathlib import Path
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
-          old = '.pizza-size-filter-wrap{margin:0 0 18px}'
-          new = '.pizza-size-filter-wrap{position:sticky;top:137px;z-index:9;margin:0 0 18px;padding:8px;background:#11100ff2;backdrop-filter:blur(14px);border:1px solid #ffffff0d;border-radius:14px;box-shadow:0 10px 24px #0007}'
+          old = '.shell{min-height:100vh;overflow:hidden}'
+          new = '.shell{min-height:100vh;overflow-x:clip;overflow-y:visible}'
           if old not in s:
-              raise SystemExit('Expected pizza size CSS not found')
+              raise SystemExit('Expected shell CSS not found')
           s = s.replace(old, new, 1)
+          if '.pizza-size-filter-wrap{position:sticky;top:137px;' not in s:
+              raise SystemExit('Sticky pizza size CSS missing')
           p.write_text(s, encoding='utf-8')
       - name: Verify
         shell: bash
         run: |
-          grep -F "position:sticky;top:137px" index.html
+          grep -F ".shell{min-height:100vh;overflow-x:clip;overflow-y:visible}" index.html
+          grep -F ".pizza-size-filter-wrap{position:sticky;top:137px;" index.html
           git diff --check
       - name: Commit and push main
         shell: bash
@@ -40,5 +43,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "feat: keep pizza size selector visible while scrolling"
+          git commit -m "fix: allow pizza size selector to stick on mobile"
           git push origin HEAD:main
