@@ -164,7 +164,7 @@
   const money=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const parseMoneyInput=value=>{let raw=String(value||'').trim().replace(/\s/g,'').replace(/[^0-9.,]/g,'');if(!raw)return NaN;if(raw.includes(','))raw=raw.replace(/\./g,'').replace(',','.');const parsed=Number(raw);return Number.isFinite(parsed)?parsed:NaN};
   const escapeCatalogText=value=>String(value??'').replace(/[&<>\"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[char]));
-  const categoryIcon=slug=>({pizzas:'pizza',esfirras:'croissant',bebidas:'cup-soda'}[slug]||'utensils');
+  const categoryIcon=slug=>({pizzas:'pizza',esfirras:'croissant',bebidas:'cup-soda',calzone:'sandwich'}[slug]||'utensils');
   function applyStoreStatus(){
     const host=document.querySelector('#store-status'),text=document.querySelector('#store-status-text');
     if(text)text.textContent=storeStatusReady?(storeIsOpen?'Aberto agora':'Fechado agora'):'Status indisponível';
