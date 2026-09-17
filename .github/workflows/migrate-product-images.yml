@@ -1,5 +1,6 @@
 name: Migrate product images to Supabase
 
+# second pass: retry remaining images with JPEG/PNG/WebP preference
 on:
   push:
     branches: [work-deliverylv]
