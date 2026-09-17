@@ -2,6 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
+  <meta name="lv-updates-build" content="20260917-remote-update-1">
+  <script src="./lv-updates.js?v=20260917-remote-update-1"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#11100f">
   <title>Delivery LV | Cardápio</title>
@@ -318,7 +320,15 @@
   }
   function addQuick(name,price,category,productId){if(!productId){showToast('Produto ainda não está disponível');return}const existing=cart.find(item=>String(item.id)===String(productId)&&!item.sizeName&&!item.edge);if(existing)existing.qty++;else cart.push({id:Number(productId),name,ingredients:'Item escolhido no cardápio',category,qty:1,price,basePrice:price,pricingMode:'fixed',sizeName:null,edge:null,note:''});updateCart();showToast('Adicionado ao pedido')}
   function updateCart(){const qty=cart.reduce((sum,item)=>sum+item.qty,0),total=cart.reduce((sum,item)=>sum+item.price*item.qty,0);document.querySelector('#cart-count').textContent=qty;document.querySelector('#cart-summary').textContent=qty?`Ver pedido · ${money(total)}`:'Seu pedido está vazio';document.querySelector('#cart-bar').classList.toggle('visible',qty>0);renderCart()}
+  let lvSendingOrder=false;
   async function sendOrderToOperation(){
+    if(lvSendingOrder)return;
+    lvSendingOrder=true;
+    const releaseUpdate=window.LVUpdates?.hold();
+    try{return await sendOrderToOperationInternal()}
+    finally{lvSendingOrder=false;releaseUpdate?.()}
+  }
+  async function sendOrderToOperationInternal(){
     if(!cart.length)return;
     const storeStatusOk=await loadStoreStatus();
     if(!storeStatusOk||!storeIsOpen){showToast(storeStatusReady?'A loja está fechada no momento':'Não foi possível confirmar se a loja está aberta');return}
@@ -489,6 +499,35 @@
     const topbar=document.querySelector('.topbar');
     window.addEventListener('scroll',()=>topbar.classList.toggle('scrolled',window.scrollY>24),{passive:true});
   </script>
+
+<script id="lv-remote-updates-menu">
+(() => {
+  if (!window.LVUpdates) return;
+  LVUpdates.init({
+    app:'menu', url:SUPABASE_URL, apiKey:SUPABASE_PUBLISHABLE_KEY,
+    isBusy:() => lvSendingOrder || document.querySelector('#product-overlay')?.classList.contains('show'),
+    beforeReload:() => LVUpdates.saveDraft({
+      cart,checkoutType,checkoutPayment,checkoutCardType,cashNeedsChange,checkoutStep,
+      customerName:document.querySelector('#customer-name')?.value ?? customerName,
+      customerPhone:document.querySelector('#customer-phone')?.value ?? customerPhone,
+      customerAddress:document.querySelector('#customer-address')?.value ?? customerAddress,
+      cashChangeFor:document.querySelector('#cash-change-for')?.value ?? cashChangeFor,
+      open:document.querySelector('#cart-overlay').classList.contains('show')
+    })
+  });
+  const saved=LVUpdates.takeDraft();
+  if(saved && Array.isArray(saved.cart)) {
+    cart=saved.cart;
+    checkoutType=saved.checkoutType;checkoutPayment=saved.checkoutPayment;checkoutCardType=saved.checkoutCardType;
+    cashNeedsChange=saved.cashNeedsChange;checkoutStep=saved.checkoutStep;cashChangeFor=saved.cashChangeFor;
+    customerName=saved.customerName;customerPhone=saved.customerPhone;customerAddress=saved.customerAddress;
+    updateCart();
+    if(saved.open)document.querySelector('#cart-overlay').classList.add('show');
+  }
+})();
+</script>
+
 </body>
 </html>
+
 
