@@ -1,0 +1,35 @@
+name: Fix calzone icon
+on:
+  push:
+    branches: [work-deliverylv]
+    paths: ['.github/workflows/fix-calzone-icon.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Change calzone icon
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old="calzone:'sandwich'"
+          new="calzone:'croissant'"
+          if old not in s:
+              raise SystemExit('calzone sandwich icon marker not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+          grep -q "calzone:'croissant'" index.html
+      - name: Commit to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "fix: use esfirra icon for calzone"
+          git push origin HEAD:main
