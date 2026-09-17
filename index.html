@@ -15,6 +15,7 @@
     *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ink);color:var(--cream);font-family:Manrope,system-ui,sans-serif;font-size:15px}button{font:inherit;color:inherit;border:0;cursor:pointer}button:focus-visible{outline:3px solid var(--lime);outline-offset:3px}img{display:block;max-width:100%}
     .shell{min-height:100vh;overflow-x:clip;overflow-y:visible}.topbar{position:sticky;top:0;z-index:20;background:#11100fe8;backdrop-filter:blur(18px);border-bottom:1px solid #ffffff12}.topbar-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:1180px;margin:auto;padding:16px 20px}.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--cream)}.brand-mark{width:42px;height:42px;display:grid;place-items:center;background:var(--orange);color:#16100c;border-radius:12px 12px 12px 3px;font-family:"Barlow Condensed";font-size:27px;font-weight:900;line-height:1}.brand-copy{line-height:.88}.brand-copy strong{display:block;font-family:"Barlow Condensed";font-size:26px;letter-spacing:.03em}.brand-copy small{color:var(--orange-2);font-size:9px;font-weight:800;letter-spacing:.17em}.top-actions{display:flex;align-items:center;gap:12px}.open-status{display:flex;align-items:center;gap:7px;color:#c9c4be;font-size:12px;font-weight:700}.status-dot{width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 4px #d9f15c1c}.icon-btn{position:relative;width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--line);background:#201d1a;border-radius:12px}.icon-btn:hover{border-color:var(--orange)}.count{position:absolute;top:-6px;right:-5px;min-width:19px;height:19px;padding:0 5px;display:grid;place-items:center;border-radius:10px;background:var(--orange);color:#fff;font-size:10px;font-weight:800}
     main{max-width:1180px;margin:auto;padding:0 20px 130px}.hero{padding:38px 0 30px;display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,390px);gap:28px;align-items:end}.eyebrow{color:var(--orange-2);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}.hero h1{max-width:620px;margin:10px 0 14px;font-family:"Barlow Condensed";font-size:clamp(48px,8vw,86px);line-height:.85;letter-spacing:-.025em;text-transform:uppercase}.hero h1 em{color:var(--orange);font-style:normal}.hero p{max-width:520px;margin:0;color:var(--muted);line-height:1.65}.hero-visual{min-height:235px;position:relative;overflow:hidden;border:1px solid #ffffff18;border-radius:24px;background:url('https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=900&q=85') center/cover}.hero-visual:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#11100f55,#11100f00 60%),linear-gradient(0deg,#11100faa,transparent 65%)}.hero-label{position:absolute;z-index:1;left:18px;bottom:16px;font-family:"Barlow Condensed";font-size:30px;text-transform:uppercase;line-height:.9}.hero-label span{display:block;color:var(--orange);font-size:14px;letter-spacing:.12em}
+    .promo-showcase{width:100vw;margin-left:calc(50% - 50vw);padding:6px 0 28px;overflow:hidden}.promo-head{max-width:1180px;margin:0 auto 14px;padding:0 20px;display:flex;align-items:end;justify-content:space-between;gap:18px}.promo-head h2{margin:5px 0 0;font-family:"Barlow Condensed";font-size:38px;line-height:.92;text-transform:uppercase}.promo-head p{margin:0;color:var(--muted);font-size:11px}.promo-viewport{width:100%;overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}.promo-track{display:flex;gap:12px;width:max-content;padding:2px 0;will-change:transform;animation:promoMarquee 34s linear infinite}.promo-track:hover{animation-play-state:paused}.promo-set{display:flex;gap:12px;flex:none}.promo-card{position:relative;width:282px;height:158px;flex:none;overflow:hidden;border:1px solid #ff5a1660;border-radius:18px;background:#211914;text-align:left;box-shadow:0 12px 30px #0005}.promo-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}.promo-card:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#120d0acc 15%,#120d0a78 62%,#120d0a35)}.promo-card-copy{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;align-items:flex-start;padding:15px}.promo-pill{display:inline-flex;padding:5px 8px;border-radius:99px;background:var(--orange);color:#1b110b;font-size:9px;font-weight:900;letter-spacing:.06em}.promo-card h3{max-width:185px;margin:10px 0 4px;font-size:16px;line-height:1.05}.promo-card small{color:#ddd0c6;font-size:9px}.promo-prices{display:flex;align-items:baseline;gap:8px;margin-top:auto}.promo-prices del{color:#b5aaa1;font-size:11px}.promo-prices strong{color:#fff;font-family:"Barlow Condensed";font-size:25px;line-height:1}.promo-card:hover{border-color:var(--orange);transform:translateY(-2px)}.promo-price-old{margin-right:7px;color:#887f78;font-size:11px;font-weight:600}.product-copy .product-badge.promo-badge{background:#d9f15c18;border-color:#d9f15c88;color:var(--lime)}@keyframes promoMarquee{from{transform:translateX(0)}to{transform:translateX(calc(-50% - 6px))}}@media(max-width:600px){.promo-showcase{padding-bottom:22px}.promo-head h2{font-size:33px}.promo-head p{display:none}.promo-card{width:245px;height:145px}.promo-card h3{max-width:160px}.promo-track{animation-duration:28s}}@media(prefers-reduced-motion:reduce){.promo-track{animation:none;transform:none;overflow-x:auto}}
     .menu-layout{display:block}.categories{position:sticky;top:77px;z-index:10;display:flex;gap:8px;margin:0 -20px;padding:12px 20px;background:#11100fe8;backdrop-filter:blur(16px);overflow:auto;border-bottom:1px solid #ffffff0d}.categories::-webkit-scrollbar{display:none}.category-kicker{display:none}.category{flex:none;display:flex;align-items:center;gap:8px;padding:11px 17px;border-radius:99px;background:transparent;border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:800}.category svg{width:16px;height:16px}.category.active{background:var(--orange);color:#1b110b;border-color:var(--orange)}.menu-sections{min-width:0}.section{scroll-margin-top:100px}
     .section{padding-top:34px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:16px}.section-head h2{margin:0;font-family:"Barlow Condensed";font-size:38px;line-height:.95;text-transform:uppercase}.section-head p{margin:0;color:var(--muted);font-size:12px}.sizes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}.size{padding:15px;text-align:left;background:var(--ink-2);border:1px solid var(--line);border-radius:14px}.size strong{display:block;color:var(--orange-2);font-size:12px;text-transform:uppercase}.size b{display:block;margin-top:3px;font-family:"Barlow Condensed";font-size:29px;line-height:1}.size span{display:block;margin-top:6px;color:var(--muted);font-size:11px}.size:first-child{border-color:#ff5a1680;background:#241710}
     .pizza-size-filter-wrap{position:sticky;top:137px;z-index:9;margin:0 0 18px;padding:8px;background:#11100ff2;backdrop-filter:blur(14px);border:1px solid #ffffff0d;border-radius:14px;box-shadow:0 10px 24px #0007}.pizza-size-filter-label{display:block;margin-bottom:8px;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em}.pizza-size-filter{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pizza-size-choice{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:9px 10px;background:#1a1715;border:1px solid var(--line);border-radius:12px;color:var(--muted);transition:.2s}.pizza-size-choice strong{font-family:"Barlow Condensed";font-size:25px;line-height:1;color:var(--cream)}.pizza-size-choice span{font-size:10px;font-weight:800}.pizza-size-choice.active{background:var(--orange);border-color:var(--orange);color:#1b110b}.pizza-size-choice.active strong{color:#1b110b}.pizza-size-choice:hover{border-color:var(--orange)}
@@ -124,6 +125,7 @@
     <header class="topbar"><div class="topbar-inner"><a class="brand" href="#pizzas" aria-label="Delivery LV início"><span class="brand-mark">LV</span><span class="brand-copy"><strong>DELIVERY</strong><small>pizzaria & esfiharia</small></span></a><div class="top-actions"><span class="open-status" id="store-status"><i class="status-dot"></i><span id="store-status-text">Verificando...</span></span><button class="icon-btn" id="open-cart" aria-label="Abrir carrinho"><i data-lucide="shopping-bag"></i><span class="count" id="cart-count">0</span></button></div></div></header>
     <main>
       <section class="hero"><div><span class="eyebrow">Seu pedido, do seu jeito</span><h1>Pizza quente.<br><em>Pedido fácil.</em></h1><p>Escolha seus sabores, personalize cada detalhe e finalize seu pedido em poucos toques.</p></div><div class="hero-visual"><div class="hero-label"><span>feito na hora</span>Delivery LV</div></div></section>
+      <section class="promo-showcase" id="promo-showcase" hidden><div class="promo-head"><div><span class="eyebrow">Ofertas da casa</span><h2>Promoções</h2></div><p>Toque em uma oferta para pedir</p></div><div class="promo-viewport"><div class="promo-track" id="promo-track"></div></div></section>
       <div class="menu-layout"><nav class="categories" aria-label="Categorias"><span class="category-kicker">Cardápio</span><button class="category active" data-target="pizzas"><i data-lucide="pizza"></i>Pizzas</button><button class="category" data-target="esfirras"><i data-lucide="croissant"></i>Esfirras</button><button class="category" data-target="bebidas"><i data-lucide="cup-soda"></i>Bebidas</button></nav><div class="menu-sections">
         <section class="section" id="pizzas"><div class="section-head"><div><span class="eyebrow">Escolha o tamanho</span><h2>Pizzas</h2></div><p>Monte sua combinação</p></div><div class="sizes"><div class="size"><strong>Pequena</strong><b>R$37,00</b><span>1 sabor</span></div><div class="size"><strong>Média</strong><b>R$47,00</b><span>2 sabores</span></div><div class="size"><strong>Grande</strong><b>R$65,00</b><span>2 sabores</span></div></div><div class="product-grid" id="pizza-grid"></div></section>
         <section class="section" id="esfirras"><div class="section-head"><div><span class="eyebrow">Salgadas e doces</span><h2>Esfirras</h2></div><p>Escolha suas favoritas</p></div><div class="subsection">Produtos da casa</div><div id="savory-list"></div><div class="subsection">Doces</div><div id="sweet-list"></div></section>
@@ -184,9 +186,12 @@
   const pizzaSizeRule=name=>catalogPizzaSizes.find(row=>normalizeSizeName(row.name)===normalizeSizeName(name));
   const selectedMaxFlavors=()=>selected?.category==='pizzas'?Math.max(1,Number(pizzaSizeRule(selected.sizes?.[selected.size]?.name)?.max_flavors||1)):1;
   const flavorProduct=id=>catalogProducts.find(product=>String(product.id)===String(id));
+  const promotionDiscount=product=>Math.max(0,Math.min(99.99,Number(product?.promotion_discount||0)));
+  const productOnPromotion=product=>Boolean(product?.promotion_active)&&promotionDiscount(product)>0;
+  const applyProductPromotion=(product,value)=>productOnPromotion(product)?Math.round((Number(value||0)*(1-promotionDiscount(product)/100))*100)/100:Number(value||0);
   const flavorInfo=product=>({id:product.id,name:product.name,priceAddition:Number(product.price_addition||0)});
   const pizzaFlavorProducts=()=>catalogProducts.filter(product=>categorySlugFor(product)==='pizzas');
-  const flavorSizePrice=(flavorId,sizeName)=>{const row=catalogProductSizes.find(size=>String(size.product_id)===String(flavorId)&&normalizeSizeName(size.name)===normalizeSizeName(sizeName)&&size.active!==false);const product=flavorProduct(flavorId);return Number(row?.price||0)+Number(product?.price_addition||0)};
+  const flavorSizePrice=(flavorId,sizeName)=>{const row=catalogProductSizes.find(size=>String(size.product_id)===String(flavorId)&&normalizeSizeName(size.name)===normalizeSizeName(sizeName)&&size.active!==false);const product=flavorProduct(flavorId);const regular=Number(row?.price||0)+Number(product?.price_addition||0);return applyProductPromotion(product,regular)};
   const categorySlugFor=product=>categoryForProduct(product)?.slug||'';
   function productSizesFor(product){
     const own=catalogProductSizes.filter(size=>String(size.product_id)===String(product?.id)&&size.active!==false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
@@ -198,19 +203,23 @@
   function pizzaCatalogSizeRow(product,sizeName=selectedPizzaCatalogSize){return productSizesFor(product).find(size=>normalizeSizeName(size.name)===normalizeSizeName(sizeName))||null}
   function pizzaCatalogSizeFilter(){return `<div class="pizza-size-filter-wrap"><span class="pizza-size-filter-label">Tamanho da pizza</span><div class="pizza-size-filter" role="group" aria-label="Escolha o tamanho da pizza">${pizzaCatalogSizeChoices.map(([name,short])=>`<button type="button" class="pizza-size-choice ${normalizeSizeName(selectedPizzaCatalogSize)===normalizeSizeName(name)?'active':''}" data-pizza-catalog-size="${name}"><strong>${short}</strong><span>${name}</span></button>`).join('')}</div></div>`}
   function productEdges(){const rows=catalogEdges.length?catalogEdges.map(edge=>[edge.name,Number(edge.price||0)]):edges;return rows.filter(edge=>edge[0])}
-  function productStartingPrice(product){const sizeRows=productSizesFor(product);const base=(product.pricing_mode==='sizes'||sizeRows.length)&&sizeRows.length?Math.min(...sizeRows.map(size=>Number(size.price||0))):Number(product.base_price||0);return base+Number(product.price_addition||0)}
+  function productRegularStartingPrice(product){const sizeRows=productSizesFor(product);const base=(product.pricing_mode==='sizes'||sizeRows.length)&&sizeRows.length?Math.min(...sizeRows.map(size=>Number(size.price||0))):Number(product.base_price||0);return base+Number(product.price_addition||0)}
+  function productStartingPrice(product){return applyProductPromotion(product,productRegularStartingPrice(product))}
   function catalogCard(product){
     const acrescimo=Number(product.price_addition||0);
-    const badge=acrescimo>0?`<span class="product-badge">ACRÉSCIMO: ${money(acrescimo)}</span>`:'';
+    const promo=productOnPromotion(product),discount=promotionDiscount(product);
+    const badges=(promo?`<span class="product-badge promo-badge">PROMO -${Number(discount.toFixed(2))}%</span>`:'')+(acrescimo>0?`<span class="product-badge">ACRÉSCIMO: ${money(acrescimo)}</span>`:'');
     const sizeRows=productSizesFor(product);
     const usesSizes=product.pricing_mode==='sizes'||sizeRows.length>0;
     const selectedPizzaRow=categorySlugFor(product)==='pizzas'?pizzaCatalogSizeRow(product):null;
-    const precoInicial=selectedPizzaRow?Number(selectedPizzaRow.price||0)+acrescimo:productStartingPrice(product);
-    const priceLabel=selectedPizzaRow?money(precoInicial):(usesSizes&&sizeRows.length?`a partir de ${money(precoInicial)}`:money(precoInicial));
+    const regularPrice=selectedPizzaRow?Number(selectedPizzaRow.price||0)+acrescimo:productRegularStartingPrice(product);
+    const precoInicial=applyProductPromotion(product,regularPrice);
+    const prefix=!selectedPizzaRow&&usesSizes&&sizeRows.length?'a partir de ':'';
+    const priceLabel=promo?`${prefix}<span class="promo-price-old"><del>${money(regularPrice)}</del></span>${money(precoInicial)}`:`${prefix}${money(precoInicial)}`;
     const name=escapeCatalogText(product.name||'Produto');
     const description=escapeCatalogText(product.description||'Produto preparado na hora.');
     const image=product.image_url||pizzaImage;
-    return `<article class="product" data-configure-product="${product.id}"><div class="product-copy">${badge}<h3>${name}</h3><p>${description}</p><strong class="price">${priceLabel}</strong></div><img class="product-image" src="${image}" alt="${name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()"></article>`
+    return `<article class="product" data-configure-product="${product.id}"><div class="product-copy">${badges}<h3>${name}</h3><p>${description}</p><strong class="price">${priceLabel}</strong></div><img class="product-image" src="${image}" alt="${name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()"></article>`
   }
   function simpleCard(product,category){
     const sizeRows=productSizesFor(product), configurable=product.pricing_mode==='sizes'||sizeRows.length>0||product.allow_edges;
@@ -219,6 +228,27 @@
     const button=configurable?`<button class="quick-add" data-configure-product="${product.id}" aria-label="Escolher opções de ${product.name}"><i data-lucide="sliders-horizontal"></i></button>`:`<button class="quick-add" data-quick="${product.name}" data-product-id="${product.id}" data-category="${category}" data-price="${price}" aria-label="Adicionar ${product.name}"><i data-lucide="plus"></i></button>`;
     const image=product.image_url?`<img class="simple-thumb" src="${product.image_url}" alt="${product.name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">`:'';
     return `<div class="simple-card">${image}<div class="simple-card-copy"><h3>${product.name}</h3><p>${product.description||'Escolha sua quantidade no pedido'}</p></div><strong class="simple-price">${priceLabel}</strong>${button}</div>`
+  }
+  function promotionCard(product){
+    const category=categorySlugFor(product);
+    const sizeRows=productSizesFor(product);
+    const chosenRow=category==='pizzas'?(pizzaCatalogSizeRow(product)||sizeRows[0]):null;
+    const regular=chosenRow?Number(chosenRow.price||0)+Number(product.price_addition||0):productRegularStartingPrice(product);
+    const promotional=applyProductPromotion(product,regular);
+    const sizeLabel=chosenRow?`Tamanho ${escapeCatalogText(chosenRow.name)}`:(sizeRows.length?'A partir de':'Preço promocional');
+    const image=product.image_url||pizzaImage;
+    return `<button type="button" class="promo-card" data-configure-product="${product.id}" aria-label="Ver promoção de ${escapeCatalogText(product.name)}"><img src="${image}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()"><span class="promo-card-copy"><span class="promo-pill">-${Number(promotionDiscount(product).toFixed(2))}%</span><h3>${escapeCatalogText(product.name)}</h3><small>${sizeLabel}</small><span class="promo-prices"><del>${money(regular)}</del><strong>${money(promotional)}</strong></span></span></button>`;
+  }
+  function renderPromotions(){
+    const host=document.querySelector('#promo-showcase'),track=document.querySelector('#promo-track');
+    if(!host||!track)return;
+    const promos=catalogProducts.filter(productOnPromotion).sort((a,b)=>Number(a.promotion_sort_order||0)-Number(b.promotion_sort_order||0)||Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
+    if(!promos.length){host.hidden=true;track.innerHTML='';return}
+    const base=promos.map(promotionCard).join('');
+    const repeats=Math.max(1,Math.ceil(8/promos.length));
+    const filled=Array.from({length:repeats},()=>base).join('');
+    track.innerHTML=`<div class="promo-set">${filled}</div><div class="promo-set" aria-hidden="true">${filled}</div>`;
+    host.hidden=false;
   }
   function renderCatalog(){
     const categoriesHost=document.querySelector('.categories');
@@ -239,12 +269,13 @@
       const eyebrow=isPizza?'Escolha o tamanho':'Escolha seu produto';
       return `<section class="section ${index===0?'active':''}" id="${escapeCatalogText(category.slug)}"><div class="section-head"><div><span class="eyebrow">${eyebrow}</span><h2>${escapeCatalogText(category.name||category.slug)}</h2></div><p>${products.length} ${products.length===1?'opção':'opções'}</p></div>${sizeFilter}<div class="product-grid">${products.map(catalogCard).join('')}</div></section>`;
     }).join('');
+    renderPromotions();
     lucide.createIcons();
   }
   async function loadCatalog(){
     const[{data:categories,error:categoryError},{data:products,error:productError},{data:sizeRows,error:sizeError},{data:pizzaSizeRows,error:pizzaSizeError},{data:edgeRows,error:edgeError}]=await Promise.all([
       db.from('categories').select('id,slug,name').eq('active',true).order('sort_order'),
-      db.from('products').select('id,category_id,name,description,base_price,price_addition,image_url,active,sort_order,pricing_mode,allow_edges').eq('active',true).order('sort_order'),
+      db.from('products').select('id,category_id,name,description,base_price,price_addition,image_url,active,sort_order,pricing_mode,allow_edges,promotion_active,promotion_discount,promotion_sort_order').eq('active',true).order('sort_order'),
       db.from('product_sizes').select('product_id,name,price,active,sort_order').eq('active',true).order('sort_order'),
       db.from('pizza_sizes').select('name,max_flavors,active,sort_order').eq('active',true).order('sort_order'),
       db.from('pizza_edges').select('name,price,active,sort_order').eq('active',true).order('sort_order')
@@ -259,14 +290,14 @@
     const pricingMode=(product.pricing_mode==='sizes'||configuredSizes.length)?'sizes':'fixed';
     if(pricingMode==='sizes'&&!configuredSizes.length){showToast('Este produto ainda não tem tamanhos disponíveis');return}
     const initialSizeIndex=category==='pizzas'?configuredSizes.findIndex(size=>normalizeSizeName(size.name)===normalizeSizeName(selectedPizzaCatalogSize)):0;
-    selected={id:product.id,name:product.name,ingredients:product.description||'',category,pricingMode,sizes:configuredSizes,size:initialSizeIndex>=0?initialSizeIndex:0,basePrice:Number(product.base_price||0),edge:null,qty:1,note:'',priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),image:product.image_url||pizzaImage,flavors:category==='pizzas'?[flavorInfo(product)]:[]};
+    selected={id:product.id,name:product.name,ingredients:product.description||'',category,pricingMode,sizes:configuredSizes,size:initialSizeIndex>=0?initialSizeIndex:0,basePrice:Number(product.base_price||0),edge:null,qty:1,note:'',priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),promotion_active:Boolean(product.promotion_active),promotion_discount:Number(product.promotion_discount||0),image:product.image_url||pizzaImage,flavors:category==='pizzas'?[flavorInfo(product)]:[]};
     renderProduct();document.querySelector('#product-overlay').classList.add('show')
   }
   function currentPrice(){
     const sizeName=selected.sizes?.[selected.size]?.name;
     const base=selected.pricingMode==='sizes'?Number(selected.sizes[selected.size]?.price||0):Number(selected.basePrice||0);
-    const flavorBase=selected.category==='pizzas'&&selected.flavors?.length?Math.max(...selected.flavors.map(flavor=>flavorSizePrice(flavor.id,sizeName))):base+Number(selected.priceAddition||0);
-    return (selected.category==='pizzas'?flavorBase:base+Number(selected.priceAddition||0))+(selected.edge?Number(selected.edge[1]||0):0)
+    const discountable=selected.category==='pizzas'&&selected.flavors?.length?Math.max(...selected.flavors.map(flavor=>flavorSizePrice(flavor.id,sizeName))):applyProductPromotion(selected,base+Number(selected.priceAddition||0));
+    return discountable+(selected.edge?Number(selected.edge[1]||0):0)
   }
   function renderProduct(){
     const sizeField=selected.pricingMode==='sizes'?`<div class="field"><span class="field-label">Tamanho</span><div class="option-grid">${selected.sizes.map((size,i)=>`<button class="option ${i===selected.size?'selected':''}" data-size="${i}"><strong>${size.name}</strong><span>${money(size.price)}</span></button>`).join('')}</div></div>`:'';
