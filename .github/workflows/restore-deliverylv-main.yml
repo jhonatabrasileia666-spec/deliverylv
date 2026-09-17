@@ -1,0 +1,52 @@
+name: Restore Delivery LV main
+
+on:
+  push:
+    branches: [work-deliverylv]
+    paths:
+      - '.github/workflows/restore-deliverylv-main.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore correct Delivery LV index to main
+        shell: bash
+        run: |
+          git fetch origin main work-deliverylv
+          git checkout -B main origin/main
+          git show origin/work-deliverylv:index.html > index.html
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old="const categoryIcon=slug=>({pizzas:'pizza',esfirras:'croissant',bebidas:'cup-soda'}[slug]||'utensils');"
+          new="const categoryIcon=slug=>({pizzas:'pizza',esfirras:'croissant',bebidas:'cup-soda',calzone:'sandwich'}[slug]||'utensils');"
+          if old not in s:
+              raise SystemExit('categoryIcon pattern not found')
+          s=s.replace(old,new,1)
+          if '<title>Delivery LV | Cardápio</title>' not in s:
+              raise SystemExit('Delivery LV title not found')
+          if "card_credit" not in s or "cashNeedsChange" not in s:
+              raise SystemExit('latest payment logic not found')
+          p.write_text(s,encoding='utf-8')
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>(.*?)</script>',s,re.S)
+          Path('/tmp/inline.js').write_text('\n'.join(scripts),encoding='utf-8')
+          PY
+          node --check /tmp/inline.js
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'fix: restore Delivery LV storefront' || exit 0
+          git push origin main
