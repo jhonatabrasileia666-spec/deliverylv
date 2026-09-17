@@ -1,0 +1,45 @@
+name: Add storefront promotions
+
+on:
+  push:
+    branches: [work-deliverylv]
+    paths:
+      - '.github/scripts/add-promotions-storefront.py'
+      - '.github/workflows/add-promotions-storefront.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work-deliverylv
+          fetch-depth: 0
+      - name: Preserve patch script
+        run: cp .github/scripts/add-promotions-storefront.py /tmp/add-promotions-storefront.py
+      - name: Patch main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout main
+          git pull --ff-only origin main
+          python /tmp/add-promotions-storefront.py
+          python - <<'PY'
+          import re, pathlib
+          text=pathlib.Path('index.html').read_text(encoding='utf-8')
+          scripts='\n'.join(re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',text,re.S))
+          pathlib.Path('/tmp/storefront-inline.js').write_text(scripts,encoding='utf-8')
+          assert 'promo-showcase' in text
+          assert 'promotion_active' in text
+          assert 'renderPromotions()' in text
+          PY
+          node --check /tmp/storefront-inline.js
+          git config user.name 'jhonatabrasileia666-spec'
+          git config user.email 'jhonata.brasileia666@gmail.com'
+          git add index.html
+          git diff --cached --check
+          git commit -m 'feat: add promotions carousel' || exit 0
+          git push origin main
