@@ -1,0 +1,64 @@
+name: Fix image loading fallback
+
+on:
+  push:
+    branches: [work-deliverylv]
+    paths: ['.github/workflows/fix-image-fallback.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Harden external product images
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          replacements = [
+            (
+              '<img class="product-image" src="${image}" alt="${name}" loading="lazy">',
+              '<img class="product-image" src="${image}" alt="${name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">'
+            ),
+            (
+              '<img class="simple-thumb" src="${product.image_url}" alt="${product.name}" loading="lazy">',
+              '<img class="simple-thumb" src="${product.image_url}" alt="${product.name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">'
+            ),
+            (
+              '<img class="detail-image" src="${selected.image}" alt="${selected.name}">',
+              '<img class="detail-image" src="${selected.image}" alt="${selected.name}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">'
+            ),
+          ]
+
+          for old, new in replacements:
+            if old not in s:
+              raise SystemExit(f'Expected image markup not found: {old}')
+            s = s.replace(old, new, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Verify
+        shell: bash
+        run: |
+          grep -F 'referrerpolicy="no-referrer"' index.html
+          grep -F 'onerror="this.onerror=null;this.remove()"' index.html
+          git diff --check
+
+      - name: Commit and push main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "fix: prevent broken product images"
+          git push origin HEAD:main
