@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="lv-updates-build" content="20260919-server-ai-free-v2">
-  <script src="./lv-updates.js?v=20260919-server-ai-free-v2"></script>
+  <meta name="lv-updates-build" content="20260919-order-additions-v1">
+  <script src="./lv-updates.js?v=20260919-order-additions-v1"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#11100f">
   <title>Delivery LV | Cardápio</title>
@@ -145,6 +145,17 @@
   .voice-ai-provider{margin-top:9px;color:#716b65;font-size:9px;text-align:center}
   @keyframes voice-pulse{50%{transform:scale(1.035);box-shadow:0 0 0 9px #ff5a1617}}
   @media(max-width:520px){#voice-panel{right:14px;bottom:136px}.voice-ai-actions{grid-template-columns:1fr}.voice-ai-confirm{grid-column:auto}}
+<style id="order-followup-styles">
+  .order-followup{margin:18px auto 0;padding:14px 15px;border:1px solid #d9f15c55;border-radius:14px;background:linear-gradient(135deg,#222116,#191714);box-shadow:0 10px 28px #0004}
+  .order-followup[hidden]{display:none!important}
+  .order-followup-inner{display:flex;align-items:center;justify-content:space-between;gap:14px}
+  .order-followup strong{display:block;color:var(--lime);font-size:13px}
+  .order-followup span{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.45}
+  .order-followup button{flex:none;min-height:42px;padding:0 14px;border-radius:10px;background:var(--lime);color:#17140f;font-size:11px;font-weight:900}
+  .addition-banner{margin-bottom:12px;padding:11px 12px;border:1px solid #d9f15c55;border-radius:10px;background:#262719;color:#e9f6ab;font-size:11px;line-height:1.5}
+  .addition-banner strong{color:var(--lime)}
+  @media(max-width:560px){.order-followup-inner{align-items:stretch;flex-direction:column}.order-followup button{width:100%}}
+</style>
 </style>
 </head>
 <body>
@@ -152,6 +163,12 @@
     <header class="topbar"><div class="topbar-inner"><a class="brand" href="#pizzas" aria-label="Delivery LV início"><span class="brand-mark">LV</span><span class="brand-copy"><strong>DELIVERY</strong><small>pizzaria & esfiharia</small></span></a><div class="top-actions"><span class="open-status" id="store-status"><i class="status-dot"></i><span id="store-status-text">Verificando...</span></span><button class="icon-btn" id="open-cart" aria-label="Abrir carrinho"><i data-lucide="shopping-bag"></i><span class="count" id="cart-count">0</span></button></div></div></header>
     <main>
       <section class="hero"><div><span class="eyebrow">Seu pedido, do seu jeito</span><h1>Pizza quente.<br><em>Pedido fácil.</em></h1><p>Escolha seus sabores, personalize cada detalhe e finalize seu pedido em poucos toques.</p></div><div class="hero-visual"><div class="hero-label"><span>feito na hora</span>Delivery LV</div></div></section>
+      <section class="order-followup" id="order-followup" hidden>
+        <div class="order-followup-inner">
+          <div><strong id="order-followup-title">Pedido enviado</strong><span id="order-followup-copy">Quer adicionar mais alguma coisa?</span></div>
+          <button type="button" id="add-more-to-order">Adicionar mais itens</button>
+        </div>
+      </section>
       <section class="promo-showcase" id="promo-showcase" hidden><div class="promo-head"><div><span class="eyebrow">Ofertas da casa</span><h2>Promoções</h2></div><p>Toque em uma oferta para pedir</p></div><div class="promo-viewport"><div class="promo-track" id="promo-track"></div></div></section>
       <div class="menu-layout"><nav class="categories" aria-label="Categorias"><span class="category-kicker">Cardápio</span><button class="category active" data-target="pizzas"><i data-lucide="pizza"></i>Pizzas</button><button class="category" data-target="esfirras"><i data-lucide="croissant"></i>Esfirras</button><button class="category" data-target="bebidas"><i data-lucide="cup-soda"></i>Bebidas</button></nav><div class="menu-sections">
         <section class="section" id="pizzas"><div class="section-head"><div><span class="eyebrow">Escolha o tamanho</span><h2>Pizzas</h2></div><p>Monte sua combinação</p></div><div class="sizes"><div class="size"><strong>Pequena</strong><b>R$37,00</b><span>1 sabor</span></div><div class="size"><strong>Média</strong><b>R$47,00</b><span>2 sabores</span></div><div class="size"><strong>Grande</strong><b>R$65,00</b><span>2 sabores</span></div></div><div class="product-grid" id="pizza-grid"></div></section>
@@ -205,6 +222,69 @@
   }
   let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogPizzaSizes=[], catalogEdges=[], selectedPizzaCatalogSize='Pequena', checkoutType='pickup', checkoutPayment='pix', checkoutCardType='', cashNeedsChange='no', cashChangeFor='', checkoutStep='cart', customerName='', customerPhone='', customerAddress='', storeIsOpen=false, storeStatusReady=false;
   let storeSettings={auto_schedule_enabled:true,open_time:'18:00',close_time:'23:00',card_credit_fee:5,esfiha_min_free_delivery:5,esfiha_small_order_fee:5};
+  const LAST_ORDER_KEY='deliverylv_last_order_v2';
+  let addingToOrder=null;
+  function readLastOrder(){
+    try{
+      const value=JSON.parse(localStorage.getItem(LAST_ORDER_KEY)||'null');
+      if(!value?.orderId||!value?.orderCode||!value?.phone)return null;
+      const age=Date.now()-Number(value.savedAt||0);
+      if(!Number.isFinite(age)||age>6*60*60*1000){localStorage.removeItem(LAST_ORDER_KEY);return null}
+      return value;
+    }catch{return null}
+  }
+  function saveLastOrder(value){
+    try{localStorage.setItem(LAST_ORDER_KEY,JSON.stringify({...value,savedAt:Date.now()}))}catch(error){console.warn('Não foi possível guardar o último pedido',error)}
+  }
+  function clearLastOrder(){
+    try{localStorage.removeItem(LAST_ORDER_KEY)}catch(error){}
+    addingToOrder=null;
+    renderLastOrderFollowup(null);
+  }
+  function renderLastOrderFollowup(value=readLastOrder()){
+    const box=document.querySelector('#order-followup');
+    if(!box)return;
+    if(!value){box.hidden=true;return}
+    box.hidden=false;
+    const title=document.querySelector('#order-followup-title');
+    const copy=document.querySelector('#order-followup-copy');
+    if(title)title.textContent=`Pedido #${value.orderId} enviado`;
+    if(copy)copy.textContent=`Código ${value.orderCode} · Quer adicionar mais alguma coisa ao mesmo pedido?`;
+  }
+  async function checkLastOrderCanAdd(value=readLastOrder()){
+    if(!value)return{ok:false,can_add:false};
+    const{data,error}=await db.rpc('lv_order_addition_status',{
+      p_order_id:Number(value.orderId),
+      p_order_code:value.orderCode,
+      p_customer_phone:value.phone
+    });
+    if(error)throw error;
+    return data||{ok:false,can_add:false};
+  }
+  async function startAddingToLastOrder(){
+    const value=readLastOrder();
+    if(!value){showToast('Não encontrei um pedido recente neste aparelho');return}
+    const button=document.querySelector('#add-more-to-order');
+    if(button){button.disabled=true;button.textContent='Verificando pedido...'}
+    try{
+      const status=await checkLastOrderCanAdd(value);
+      if(!status?.can_add){
+        clearLastOrder();
+        showToast(status?.message||'Este pedido já não aceita novos itens');
+        return;
+      }
+      addingToOrder={...value,total:Number(status.total||value.total||0)};
+      checkoutStep='cart';
+      updateCart();
+      showToast(`Adicione os novos itens ao pedido #${value.orderId}`);
+      document.querySelector('.categories')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }catch(error){
+      console.error('Erro ao verificar complemento:',error);
+      showToast('Não foi possível verificar o pedido agora');
+    }finally{
+      if(button){button.disabled=false;button.textContent='Adicionar mais itens'}
+    }
+  }
   const money=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const parseMoneyInput=value=>{let raw=String(value||'').trim().replace(/\s/g,'').replace(/[^0-9.,]/g,'');if(!raw)return NaN;if(raw.includes(','))raw=raw.replace(/\./g,'').replace(',','.');const parsed=Number(raw);return Number.isFinite(parsed)?parsed:NaN};
   const deliveryFees=()=>{
@@ -372,7 +452,61 @@
     document.querySelector('#add-product').onclick=()=>{selected.note=document.querySelector('#note').value;const sizeName=selected.pricingMode==='sizes'?selected.sizes[selected.size]?.name:null;const cartName=selected.category==='pizzas'&&selected.flavors?.length>1?`Pizza ${selected.flavors.length} sabores`:selected.name;cart.push({...selected,name:cartName,originalName:selected.name,flavors:(selected.flavors||[]).map(flavor=>({...flavor})),sizeName,price:currentPrice()});closeOverlay('product-overlay');updateCart();showToast('Adicionado ao pedido')}
   }
   function addQuick(name,price,category,productId){if(!productId){showToast('Produto ainda não está disponível');return}const existing=cart.find(item=>String(item.id)===String(productId)&&!item.sizeName&&!item.edge);if(existing)existing.qty++;else cart.push({id:Number(productId),name,ingredients:'Item escolhido no cardápio',category,qty:1,price,basePrice:price,pricingMode:'fixed',sizeName:null,edge:null,note:''});updateCart();showToast('Adicionado ao pedido')}
-  function updateCart(){const qty=cart.reduce((sum,item)=>sum+item.qty,0),total=cart.reduce((sum,item)=>sum+item.price*item.qty,0);document.querySelector('#cart-count').textContent=qty;document.querySelector('#cart-summary').textContent=qty?`Ver pedido · ${money(total)}`:'Seu pedido está vazio';document.querySelector('#cart-bar').classList.toggle('visible',qty>0);renderCart()}
+  function updateCart(){const qty=cart.reduce((sum,item)=>sum+item.qty,0),total=cart.reduce((sum,item)=>sum+item.price*item.qty,0);document.querySelector('#cart-count').textContent=qty;document.querySelector('#cart-summary').textContent=qty?(addingToOrder?`Adicionar ao #${addingToOrder.orderId} · ${money(total)}`:`Ver pedido · ${money(total)}`):(addingToOrder?`Complemento do pedido #${addingToOrder.orderId}`:'Seu pedido está vazio');document.querySelector('#cart-bar').classList.toggle('visible',qty>0);renderCart()}
+  async function cartPayload(){
+    const lookup=await loadProductLookup();
+    return cart.map(item=>{
+      const category=item.category||'esfirras';
+      const productId=item.id||lookup.get(`${category}|${item.originalName||item.name}`)||lookup.get(`${category}|${item.name}`);
+      if(!productId)throw new Error(`Produto não encontrado no Supabase: ${category} / ${item.name}`);
+      const payload={product_id:productId,qty:item.qty,note:item.note||'',detail:item.sizeName?'':(category==='pizzas'?'':'Porção escolhida')};
+      if(item.sizeName)payload.size=item.sizeName;
+      if(category==='pizzas'&&Array.isArray(item.flavors)&&item.flavors.length)payload.flavors=item.flavors.map(flavor=>flavor.id);
+      if(item.edge)payload.edge=item.edge[0];
+      return payload;
+    });
+  }
+
+  async function sendAdditionToOperation(){
+    if(lvSendingOrder||!addingToOrder||!cart.length)return;
+    lvSendingOrder=true;
+    const releaseUpdate=window.LVUpdates?.hold();
+    const button=document.querySelector('#add-to-existing-order');
+    if(button){button.disabled=true;button.textContent='Adicionando...'}
+    try{
+      const storeStatusOk=await loadStoreStatus();
+      if(!storeStatusOk||!storeIsOpen)throw new Error('A loja está fechada no momento');
+      const items=await cartPayload();
+      const{data,error}=await db.rpc('adicionar_itens_pedido',{
+        p_order_id:Number(addingToOrder.orderId),
+        p_order_code:addingToOrder.orderCode,
+        p_customer_phone:addingToOrder.phone,
+        p_items:items
+      });
+      if(error)throw error;
+      const row=Array.isArray(data)?data[0]:data;
+      const total=Number(row?.order_total||addingToOrder.total||0);
+      const addedCount=Number(row?.added_count||cart.reduce((sum,item)=>sum+Number(item.qty||0),0));
+      saveLastOrder({...addingToOrder,total});
+      cart=[];
+      addingToOrder=null;
+      checkoutStep='cart';
+      updateCart();
+      closeOverlay('cart-overlay');
+      renderLastOrderFollowup();
+      showToast(`${addedCount} ${addedCount===1?'item adicionado':'itens adicionados'} ao pedido · Total ${money(total)}`);
+    }catch(error){
+      console.error('Erro ao adicionar itens ao pedido:',error);
+      const message=error?.message||'Não foi possível adicionar os itens';
+      if(/já avançou|já foi pago|atribuído/i.test(message))clearLastOrder();
+      showToast(message);
+      renderCart();
+    }finally{
+      lvSendingOrder=false;
+      releaseUpdate?.();
+    }
+  }
+
   let lvSendingOrder=false;
   async function sendOrderToOperation(){
     if(lvSendingOrder)return;
@@ -490,6 +624,17 @@
         `💰 *Total: ${money(totalPedido)}*`
       ].filter(Boolean).join('\n');
       const whatsappUrl=`https://wa.me/5568992591250?text=${encodeURIComponent(mensagemWhatsApp)}`;
+      if(orderId&&orderCode){
+        saveLastOrder({
+          orderId:Number(orderId),
+          orderCode,
+          phone:customerPhone,
+          customerName,
+          orderType:checkoutType,
+          total:totalPedido
+        });
+        renderLastOrderFollowup();
+      }
       cart=[];
       checkoutStep='cart';
       checkoutType='pickup';
@@ -514,17 +659,23 @@
   function renderCart(){
     const subtotal=cart.reduce((sum,item)=>sum+item.price*item.qty,0),detail=document.querySelector('#cart-detail');
     if(!cart.length){detail.innerHTML='<div class="empty">Seu carrinho ainda está vazio.<br>Escolha algo delicioso para começar.</div>';return}
-    const fees=deliveryFees(),creditFee=fees.creditFee,esfihaFee=fees.esfihaFee,checkoutTotal=subtotal+fees.total;
+    const fees=addingToOrder?{creditFee:0,esfihaFee:0,total:0,minQty:Number(storeSettings.esfiha_min_free_delivery||5),esfihaQty:0,hasPizza:false}:deliveryFees(),creditFee=fees.creditFee,esfihaFee=fees.esfihaFee,checkoutTotal=subtotal+fees.total;
     const cardChoice=checkoutPayment==='card'?`<div class="checkout-field"><strong>Débito ou crédito?</strong><div class="checkout-options" style="grid-template-columns:repeat(2,minmax(0,1fr))"><button class="checkout-option ${checkoutCardType==='debit'?'selected':''}" data-checkout-card-type="debit">Débito</button><button class="checkout-option ${checkoutCardType==='credit'?'selected':''}" data-checkout-card-type="credit">Crédito</button></div>${checkoutCardType==='credit'&&creditFee>0?`<div style="margin-top:8px;color:var(--orange-2);font-size:11px;font-weight:800">Taxa do cartão: + ${money(creditFee)}</div>`:''}</div>`:'';
     const cashChoice=checkoutPayment==='cash'?`<div class="checkout-field"><strong>Precisa de troco?</strong><div class="checkout-options" style="grid-template-columns:repeat(2,minmax(0,1fr))"><button class="checkout-option ${cashNeedsChange==='no'?'selected':''}" data-cash-change="no">Não</button><button class="checkout-option ${cashNeedsChange==='yes'?'selected':''}" data-cash-change="yes">Sim</button></div>${cashNeedsChange==='yes'?`<div style="margin-top:9px"><input class="checkout-input" id="cash-change-for" value="${escapeCatalogText(cashChangeFor)}" placeholder="Troco para quanto? Ex.: 100,00" inputmode="decimal"><div style="margin-top:6px;color:var(--muted);font-size:10px">Informe o valor que será entregue ao motoboy.</div></div>`:''}</div>`:'';
     const paymentField=checkoutType==='delivery'?`<div class="checkout-field"><strong>Como você vai pagar?</strong><div class="checkout-options">${[['pix','Pix'],['card','Cartão'],['cash','Dinheiro']].map(([value,label])=>`<button class="checkout-option ${checkoutPayment===value?'selected':''}" data-checkout-payment="${value}">${label}</button>`).join('')}</div></div>${cardChoice}${cashChoice}`:'';
     const deliveryFeeInfo=checkoutType==='delivery'?`<div style="margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:10px;line-height:1.5">${fees.hasPizza?'Pizza: entrega sem taxa.':fees.esfihaQty>0?(fees.esfihaFee>0?`Esfirras: + ${money(fees.esfihaFee)} abaixo de ${fees.minQty} unidades.`:`Esfirras: entrega sem taxa a partir de ${fees.minQty} unidades.`):'Pizza não tem taxa de entrega. Esfirras abaixo do mínimo podem ter taxa.'}</div>`:'';
     const feeSummary=(creditFee||esfihaFee)?`<div style="display:grid;gap:6px;margin-top:14px;padding:12px;background:#24201d;border:1px solid var(--line);border-radius:10px;font-size:11px">${esfihaFee?`<div style="display:flex;justify-content:space-between;gap:12px"><span>Taxa entrega esfihas</span><strong>+${money(esfihaFee)}</strong></div>`:''}${creditFee?`<div style="display:flex;justify-content:space-between;gap:12px"><span>Taxa cartão crédito</span><strong>+${money(creditFee)}</strong></div>`:''}</div><div class="total-line"><span>Total final</span><strong>${money(checkoutTotal)}</strong></div>`:'';
-    detail.innerHTML=`<div class="checkout-step ${checkoutStep==='cart'?'active':''}" data-checkout-screen="cart"><div class="cart-list">${cart.map((item,index)=>`<div class="cart-item"><div class="cart-item-main"><div><h3>${item.name}</h3><p>${cartItemDetail(item)}</p></div><strong>${money(item.price*item.qty)}</strong></div><div class="cart-controls"><button data-cart-action="minus" data-index="${index}" aria-label="Diminuir"><i data-lucide="minus"></i></button><b>${item.qty}</b><button data-cart-action="plus" data-index="${index}" aria-label="Aumentar"><i data-lucide="plus"></i></button><button class="remove" data-cart-action="remove" data-index="${index}">Remover</button></div></div>`).join('')}</div><div class="total-line"><span>Total do pedido</span><strong>${money(subtotal)}</strong></div><button class="primary" id="go-checkout">Continuar para finalizar <i data-lucide="arrow-right"></i></button></div><div class="checkout-step ${checkoutStep==='checkout'?'active':''}" data-checkout-screen="checkout"><div class="checkout-tabs"><button class="checkout-tab active">Finalizar pedido</button><button class="checkout-tab" id="checkout-summary-tab">${money(checkoutTotal)}</button></div><div class="checkout-fields"><div class="checkout-field"><strong>Seu nome</strong><input class="checkout-input" id="customer-name" value="${escapeCatalogText(customerName)}" placeholder="Digite seu nome" autocomplete="name"></div><div class="checkout-field"><strong>Telefone / WhatsApp</strong><input class="checkout-input" id="customer-phone" value="${escapeCatalogText(customerPhone)}" placeholder="(68) 99999-9999" inputmode="tel" autocomplete="tel"></div><div class="checkout-field"><strong>Como você quer receber?</strong><div class="checkout-options">${[['delivery','Entrega'],['pickup','Retirada']].map(([value,label])=>`<button class="checkout-option ${checkoutType===value?'selected':''}" data-checkout-type="${value}">${label}</button>`).join('')}</div>${checkoutType==='delivery'?'<div class="checkout-location"><input class="checkout-input" id="customer-address" value="'+escapeCatalogText(customerAddress)+'" placeholder="Digite seu endereço ou localização" autocomplete="street-address"><button type="button" class="gps-button" id="gps-button" title="Usar GPS"><i data-lucide="map-pin"></i> GPS</button></div>':''}${deliveryFeeInfo}</div>${paymentField}</div>${feeSummary}<button class="primary" id="continue-order">Enviar pedido <i data-lucide="arrow-right"></i></button><button class="checkout-back" id="back-to-cart">Voltar ao carrinho</button></div>`;
+    const additionInfo=addingToOrder?`<div class="addition-banner"><strong>Complemento do pedido #${addingToOrder.orderId}</strong><br>Os itens abaixo serão adicionados ao mesmo pedido. O total final será recalculado no servidor.</div>`:'';
+    const cartActionButton=addingToOrder
+      ?`<button class="primary" id="add-to-existing-order">Adicionar ao pedido #${addingToOrder.orderId} <i data-lucide="plus"></i></button><button class="checkout-back" id="cancel-addition-mode">Fazer um pedido separado</button>`
+      :`<button class="primary" id="go-checkout">Continuar para finalizar <i data-lucide="arrow-right"></i></button>`;
+    detail.innerHTML=`<div class="checkout-step ${checkoutStep==='cart'?'active':''}" data-checkout-screen="cart">${additionInfo}<div class="cart-list">${cart.map((item,index)=>`<div class="cart-item"><div class="cart-item-main"><div><h3>${item.name}</h3><p>${cartItemDetail(item)}</p></div><strong>${money(item.price*item.qty)}</strong></div><div class="cart-controls"><button data-cart-action="minus" data-index="${index}" aria-label="Diminuir"><i data-lucide="minus"></i></button><b>${item.qty}</b><button data-cart-action="plus" data-index="${index}" aria-label="Aumentar"><i data-lucide="plus"></i></button><button class="remove" data-cart-action="remove" data-index="${index}">Remover</button></div></div>`).join('')}</div><div class="total-line"><span>${addingToOrder?'Novos itens':'Total do pedido'}</span><strong>${money(subtotal)}</strong></div>${cartActionButton}</div><div class="checkout-step ${checkoutStep==='checkout'?'active':''}" data-checkout-screen="checkout"><div class="checkout-tabs"><button class="checkout-tab active">Finalizar pedido</button><button class="checkout-tab" id="checkout-summary-tab">${money(checkoutTotal)}</button></div><div class="checkout-fields"><div class="checkout-field"><strong>Seu nome</strong><input class="checkout-input" id="customer-name" value="${escapeCatalogText(customerName)}" placeholder="Digite seu nome" autocomplete="name"></div><div class="checkout-field"><strong>Telefone / WhatsApp</strong><input class="checkout-input" id="customer-phone" value="${escapeCatalogText(customerPhone)}" placeholder="(68) 99999-9999" inputmode="tel" autocomplete="tel"></div><div class="checkout-field"><strong>Como você quer receber?</strong><div class="checkout-options">${[['delivery','Entrega'],['pickup','Retirada']].map(([value,label])=>`<button class="checkout-option ${checkoutType===value?'selected':''}" data-checkout-type="${value}">${label}</button>`).join('')}</div>${checkoutType==='delivery'?'<div class="checkout-location"><input class="checkout-input" id="customer-address" value="'+escapeCatalogText(customerAddress)+'" placeholder="Digite seu endereço ou localização" autocomplete="street-address"><button type="button" class="gps-button" id="gps-button" title="Usar GPS"><i data-lucide="map-pin"></i> GPS</button></div>':''}${deliveryFeeInfo}</div>${paymentField}</div>${feeSummary}<button class="primary" id="continue-order">Enviar pedido <i data-lucide="arrow-right"></i></button><button class="checkout-back" id="back-to-cart">Voltar ao carrinho</button></div>`;
     lucide.createIcons();
     const persistCheckoutInputs=()=>{customerName=document.querySelector('#customer-name')?.value.trim()||customerName;customerPhone=document.querySelector('#customer-phone')?.value.trim()||customerPhone;customerAddress=document.querySelector('#customer-address')?.value.trim()||customerAddress;cashChangeFor=document.querySelector('#cash-change-for')?.value.trim()||cashChangeFor};
     document.querySelectorAll('[data-cart-action]').forEach(button=>button.onclick=()=>{const i=Number(button.dataset.index),action=button.dataset.cartAction;if(action==='plus')cart[i].qty++;if(action==='minus')cart[i].qty--;if(action==='remove'||cart[i].qty<=0)cart.splice(i,1);updateCart();document.querySelector('#cart-overlay').classList.add('show')});
-    document.querySelector('#go-checkout').onclick=()=>{checkoutStep='checkout';renderCart()};
+    document.querySelector('#go-checkout')?.addEventListener('click',()=>{checkoutStep='checkout';renderCart()});
+    document.querySelector('#add-to-existing-order')?.addEventListener('click',sendAdditionToOperation);
+    document.querySelector('#cancel-addition-mode')?.addEventListener('click',()=>{addingToOrder=null;updateCart();showToast('Carrinho voltou para um pedido separado')});
     document.querySelector('#back-to-cart').onclick=()=>{checkoutStep='cart';renderCart()};
     document.querySelectorAll('[data-checkout-type]').forEach(button=>button.onclick=()=>{persistCheckoutInputs();checkoutType=button.dataset.checkoutType;renderCart()});
     document.querySelectorAll('[data-checkout-payment]').forEach(button=>button.onclick=()=>{persistCheckoutInputs();checkoutPayment=button.dataset.checkoutPayment;if(checkoutPayment!=='card')checkoutCardType='';if(checkoutPayment!=='cash'){cashNeedsChange='no';cashChangeFor=''}renderCart()});
@@ -540,6 +691,8 @@
   function closeOverlay(id){document.querySelector('#'+id).classList.remove('show')}
   function showToast(text){const toast=document.querySelector('#toast');toast.textContent=text;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2200)}
   document.addEventListener('click',event=>{const pizzaSizeChoice=event.target.closest('[data-pizza-catalog-size]');if(pizzaSizeChoice){selectedPizzaCatalogSize=pizzaSizeChoice.dataset.pizzaCatalogSize;renderCatalog();return}const configurable=event.target.closest('[data-configure-product]');if(configurable)openProduct(configurable.dataset.configureProduct,configurable.dataset.promotionSize||'');const quick=event.target.closest('[data-quick]');if(quick)addQuick(quick.dataset.quick,Number(quick.dataset.price),quick.dataset.category,quick.dataset.productId);const close=event.target.closest('[data-close]');if(close)closeOverlay(close.dataset.close);if(event.target.classList.contains('overlay'))event.target.classList.remove('show');const gpsBtn=event.target.closest('#gps-button');if(gpsBtn){event.preventDefault();getLocationFromGPS()}});
+  document.querySelector('#add-more-to-order')?.addEventListener('click',startAddingToLastOrder);
+  renderLastOrderFollowup();
   document.querySelector('#open-cart').onclick=()=>{renderCart();document.querySelector('#cart-overlay').classList.add('show')};document.querySelector('#bar-cart').onclick=()=>{renderCart();document.querySelector('#cart-overlay').classList.add('show')};document.querySelector('#voice-toggle').onclick=()=>document.querySelector('#voice-panel').classList.toggle('show');
   document.querySelectorAll('.category').forEach(button=>button.onclick=()=>{document.querySelectorAll('.category').forEach(item=>item.classList.remove('active'));button.classList.add('active');document.querySelector('#'+button.dataset.target).scrollIntoView({behavior:'smooth',block:'start'})});
   lucide.createIcons();updateCart();loadCatalog().catch(error=>{console.error('Erro ao carregar catálogo do Supabase:',error);showToast('Não foi possível carregar o cardápio real')});window.setInterval(()=>loadStoreStatus(),30000);
