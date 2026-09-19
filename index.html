@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="lv-updates-build" content="20260918-operation-rules-1">
-  <script src="./lv-updates.js?v=20260918-operation-rules-1"></script>
+  <meta name="lv-updates-build" content="20260919-voice-ai-v1">
+  <script src="./lv-updates.js?v=20260919-voice-ai-v1"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#11100f">
   <title>Delivery LV | Cardápio</title>
@@ -121,6 +121,31 @@
   .open-status.closed .status-dot{background:#ff8f79;box-shadow:0 0 0 4px #ff8f7920}
   body.store-closed #continue-order{opacity:.55}
 </style>
+<style id="voice-ai-v1-styles">
+  #voice-toggle{display:grid!important;background:linear-gradient(145deg,var(--orange),#ff7b27);border-color:#ff8d55;color:white;box-shadow:0 10px 30px #ff5a1638}
+  #voice-toggle.listening{animation:voice-pulse 1s ease-in-out infinite}
+  #voice-panel{display:none!important;width:min(390px,calc(100vw - 28px));max-height:min(650px,calc(100vh - 180px));overflow:auto;padding:16px;background:#191614;border:1px solid #ffffff20;border-radius:18px;box-shadow:0 24px 70px #000b}
+  #voice-panel.show{display:block!important}
+  .voice-ai-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:13px}
+  .voice-ai-head strong{display:block;font:800 18px/1.05 "Barlow Condensed";text-transform:uppercase;letter-spacing:.02em}
+  .voice-ai-head small{display:block;margin-top:5px;color:var(--muted);font-size:10px;line-height:1.35}
+  .voice-ai-close{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:#ffffff0a;color:var(--muted)}
+  .voice-ai-listen{width:100%;min-height:54px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:13px;background:var(--orange);color:white;font-weight:900}
+  .voice-ai-listen.listening{background:#d9450d;animation:voice-pulse 1s ease-in-out infinite}
+  .voice-ai-transcript{margin:11px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#11100f;color:#ddd4cc;font-size:11px;line-height:1.5}
+  .voice-ai-reply{margin:11px 0 0;padding:11px 12px;border-radius:10px;background:#28211d;color:#fff5ea;font-size:12px;line-height:1.55}
+  .voice-ai-summary{display:grid;gap:7px;margin-top:10px}
+  .voice-ai-item{padding:10px 11px;border:1px solid #ffffff14;border-radius:10px;background:#211d1a}
+  .voice-ai-item strong{display:block;font-size:12px}.voice-ai-item span{display:block;margin-top:3px;color:var(--muted);font-size:10px;line-height:1.45}
+  .voice-ai-input{width:100%;min-height:74px;margin-top:11px;padding:11px 12px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:#11100f;color:var(--cream);font:inherit;font-size:12px}
+  .voice-ai-input:focus{border-color:var(--orange);outline:none}
+  .voice-ai-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+  .voice-ai-actions button{min-height:42px;border-radius:10px;font-size:11px;font-weight:900}
+  .voice-ai-send{background:#312923;color:#fff}.voice-ai-confirm{grid-column:1/-1;background:var(--lime);color:#17140f}.voice-ai-secondary{background:#24201d;color:var(--muted)}
+  .voice-ai-provider{margin-top:9px;color:#716b65;font-size:9px;text-align:center}
+  @keyframes voice-pulse{50%{transform:scale(1.035);box-shadow:0 0 0 9px #ff5a1617}}
+  @media(max-width:520px){#voice-panel{right:14px;bottom:136px}.voice-ai-actions{grid-template-columns:1fr}.voice-ai-confirm{grid-column:auto}}
+</style>
 </head>
 <body>
   <div class="shell">
@@ -135,7 +160,21 @@
       </div></div>
       <footer class="contact"><div><strong>Delivery LV</strong><span>Faça seu pedido pelo cardápio online da Delivery LV.</span></div><div>Pedidos pelo telefone<br><a href="tel:+5568992591250">(68) 99259-1250</a></div></footer>
     </main>
-    <button class="voice-button" id="voice-toggle" aria-label="Abrir assistente por voz"><i data-lucide="mic"></i></button><div class="voice-panel" id="voice-panel"><p>Olá! O que você gostaria de pedir?</p><div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+    <button class="voice-button" id="voice-toggle" aria-label="Pedir por voz"><i data-lucide="mic"></i></button>
+    <div class="voice-panel" id="voice-panel" aria-live="polite">
+      <div class="voice-ai-head"><div><strong>Assistente por voz</strong><small id="voice-status">Toque no microfone e fale seu pedido</small></div><button class="voice-ai-close" id="voice-close" type="button" aria-label="Fechar assistente"><i data-lucide="x"></i></button></div>
+      <button class="voice-ai-listen" id="voice-listen" type="button"><i data-lucide="mic"></i><span>Falar meu pedido</span></button>
+      <div class="voice-ai-transcript" id="voice-transcript" hidden></div>
+      <div class="voice-ai-reply" id="voice-reply">Pode falar naturalmente. Ex.: “Quero uma pizza grande metade calabresa e metade frango com catupiry, borda de cheddar.”</div>
+      <div class="voice-ai-summary" id="voice-summary"></div>
+      <textarea class="voice-ai-input" id="voice-text-input" placeholder="Ou digite aqui o seu pedido..."></textarea>
+      <div class="voice-ai-actions">
+        <button class="voice-ai-send" id="voice-send" type="button">Entender pedido</button>
+        <button class="voice-ai-secondary" id="voice-retry" type="button">Limpar</button>
+        <button class="voice-ai-confirm" id="voice-confirm" type="button" hidden>Confirmar e adicionar ao pedido</button>
+      </div>
+      <div class="voice-ai-provider" id="voice-provider">O preço sempre é validado pelo cardápio.</div>
+    </div>
     <div class="cart-bar" id="cart-bar"><div><strong id="cart-summary">Seu pedido está vazio</strong><small>Toque para revisar</small></div><button id="bar-cart">Ver pedido <i data-lucide="arrow-right"></i></button></div>
     <div class="overlay" id="product-overlay"><div class="sheet"><div class="sheet-inner"><div class="sheet-top"><h2>Personalize</h2><button class="close" data-close="product-overlay" aria-label="Fechar"><i data-lucide="x"></i></button></div><div id="product-detail"></div></div></div></div>
     <div class="overlay" id="cart-overlay"><div class="sheet"><div class="sheet-inner"><div class="sheet-top"><h2>Seu pedido</h2><button class="close" data-close="cart-overlay" aria-label="Fechar"><i data-lucide="x"></i></button></div><div id="cart-detail"></div></div></div></div>
@@ -516,6 +555,215 @@
     const topbar=document.querySelector('.topbar');
     window.addEventListener('scroll',()=>topbar.classList.toggle('scrolled',window.scrollY>24),{passive:true});
   </script>
+
+<script id="lv-voice-ai-module">
+(()=>{
+  const panel=document.querySelector('#voice-panel');
+  const toggle=document.querySelector('#voice-toggle');
+  const listenButton=document.querySelector('#voice-listen');
+  const sendButton=document.querySelector('#voice-send');
+  const retryButton=document.querySelector('#voice-retry');
+  const confirmButton=document.querySelector('#voice-confirm');
+  const closeButton=document.querySelector('#voice-close');
+  const input=document.querySelector('#voice-text-input');
+  const transcript=document.querySelector('#voice-transcript');
+  const reply=document.querySelector('#voice-reply');
+  const summary=document.querySelector('#voice-summary');
+  const status=document.querySelector('#voice-status');
+  const provider=document.querySelector('#voice-provider');
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  let recognition=null;
+  let listening=false;
+  let draftItems=[];
+  let context=[];
+
+  const speak=text=>{
+    if(!('speechSynthesis'in window)||!text)return;
+    try{
+      speechSynthesis.cancel();
+      const utter=new SpeechSynthesisUtterance(String(text));
+      utter.lang='pt-BR';utter.rate=1;utter.pitch=1;
+      speechSynthesis.speak(utter);
+    }catch(error){}
+  };
+  const setStatus=text=>{if(status)status.textContent=text};
+  const setReply=(text,{voice=true}={})=>{if(reply)reply.textContent=text||'';if(voice)speak(text)};
+  const clearDraft=()=>{
+    draftItems=[];
+    if(summary)summary.innerHTML='';
+    if(confirmButton)confirmButton.hidden=true;
+  };
+  const close=()=>{
+    try{recognition?.stop()}catch(error){}
+    listening=false;
+    panel?.classList.remove('show');
+    toggle?.classList.remove('listening');
+    listenButton?.classList.remove('listening');
+  };
+  const open=async()=>{
+    panel?.classList.add('show');
+    if(!catalogProducts.length){
+      setStatus('Carregando cardápio...');
+      try{await loadCatalog()}catch(error){setReply('Não consegui carregar o cardápio agora.',{voice:false})}
+    }
+    setStatus(Recognition?'Pronto para ouvir':'Microfone por voz indisponível neste navegador · você pode digitar');
+    window.lucide?.createIcons();
+  };
+  const itemPrice=item=>{
+    const sizeName=item.sizes?.[item.size]?.name;
+    const base=item.pricingMode==='sizes'?Number(item.sizes?.[item.size]?.price||0):Number(item.basePrice||0);
+    const discountable=item.category==='pizzas'&&item.flavors?.length
+      ?Math.max(...item.flavors.map(flavor=>flavorSizePrice(flavor.id,sizeName)))
+      :applyProductPromotion(item,base+Number(item.priceAddition||0),sizeName||'');
+    return discountable+(item.edge?Number(item.edge[1]||0):0);
+  };
+  const buildDraftItem=spec=>{
+    const product=catalogProducts.find(row=>String(row.id)===String(spec.product_id));
+    if(!product)return null;
+    const category=categorySlugFor(product);
+    const configuredSizes=productSizesFor(product);
+    const pricingMode=(product.pricing_mode==='sizes'||configuredSizes.length)?'sizes':'fixed';
+    let sizeIndex=0;
+    if(spec.size&&configuredSizes.length){
+      const found=configuredSizes.findIndex(size=>normalizeSizeName(size.name)===normalizeSizeName(spec.size));
+      if(found>=0)sizeIndex=found;
+    }
+    let flavorRows=[];
+    if(category==='pizzas'){
+      const ids=Array.isArray(spec.flavors)&&spec.flavors.length?spec.flavors:[product.id];
+      flavorRows=ids.map(id=>flavorProduct(id)).filter(Boolean).map(flavorInfo);
+      if(!flavorRows.length)flavorRows=[flavorInfo(product)];
+    }
+    let edge=null;
+    if(spec.edge&&product.allow_edges){
+      const row=catalogEdges.find(item=>normalizeSizeName(item.name)===normalizeSizeName(spec.edge));
+      if(row)edge=[row.name,Number(row.price||0)];
+    }
+    const item={
+      id:product.id,name:product.name,originalName:product.name,ingredients:product.description||'',
+      category,pricingMode,sizes:configuredSizes,size:sizeIndex,basePrice:Number(product.base_price||0),
+      edge,qty:Math.max(1,Math.min(20,Number(spec.quantity)||1)),note:String(spec.note||'').slice(0,180),
+      priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),
+      promotion_active:Boolean(product.promotion_active),promotion_discount:Number(product.promotion_discount||0),
+      promotion_size:product.promotion_size||'',image:product.image_url||pizzaImage,flavors:flavorRows
+    };
+    item.sizeName=pricingMode==='sizes'?configuredSizes[sizeIndex]?.name:null;
+    item.name=category==='pizzas'&&flavorRows.length>1?`Pizza ${flavorRows.length} sabores`:product.name;
+    item.price=itemPrice(item);
+    return item;
+  };
+  const renderDraft=()=>{
+    if(!summary)return;
+    if(!draftItems.length){summary.innerHTML='';confirmButton.hidden=true;return}
+    summary.innerHTML=draftItems.map(item=>{
+      const details=[];
+      if(item.sizeName)details.push(item.sizeName);
+      if(item.category==='pizzas'&&item.flavors?.length)details.push(item.flavors.map(f=>f.name).join(' + '));
+      if(item.edge)details.push('Borda '+item.edge[0]);
+      if(item.note)details.push(item.note);
+      details.push(`${item.qty}x · ${money(item.price*item.qty)}`);
+      return `<div class="voice-ai-item"><strong>${escapeCatalogText(item.name)}</strong><span>${escapeCatalogText(details.join(' · '))}</span></div>`;
+    }).join('');
+    confirmButton.hidden=false;
+  };
+  const interpret=async raw=>{
+    const text=String(raw||'').trim();
+    if(text.length<2){setReply('Fala ou digita o que você quer pedir.',{voice:false});return}
+    clearDraft();
+    if(transcript){transcript.hidden=false;transcript.textContent='Você: '+text}
+    setStatus('Entendendo seu pedido...');
+    setReply('Só um instante, estou conferindo o cardápio.',{voice:false});
+    if(sendButton)sendButton.disabled=true;
+    if(listenButton)listenButton.disabled=true;
+    try{
+      const response=await fetch(`${SUPABASE_URL}/functions/v1/lv-voice-ai`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY},
+        body:JSON.stringify({text,context:context.slice(-6)})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data.ok)throw new Error(data.message||'Não consegui entender o pedido.');
+      context.push({role:'user',text},{role:'assistant',text:data.reply||''});
+      context=context.slice(-6);
+      if(provider)provider.textContent=data.provider==='openai'?'IA ativa · preços validados pelo cardápio':'Modo inteligente local · preços validados pelo cardápio';
+      if(data.mode==='ready'){
+        draftItems=(data.items||[]).map(buildDraftItem).filter(Boolean);
+        if(!draftItems.length)throw new Error('Não encontrei os itens no cardápio atual.');
+        renderDraft();
+      }
+      setReply(data.reply||'Confere seu pedido antes de adicionar.');
+      setStatus(data.mode==='ready'?'Pedido entendido · confirme abaixo':data.mode==='clarify'?'Preciso de mais uma informação':'Não encontrei esse item');
+      if(data.mode!=='ready'&&input){input.value=''}
+    }catch(error){
+      console.error('Assistente por voz:',error);
+      setReply(error?.message||'Não consegui entender agora. Tente novamente.');
+      setStatus('Tente novamente');
+      if(provider)provider.textContent='O pedido normal continua disponível.';
+    }finally{
+      if(sendButton)sendButton.disabled=false;
+      if(listenButton)listenButton.disabled=false;
+    }
+  };
+  const startListening=()=>{
+    if(!Recognition){
+      setReply('Neste navegador o reconhecimento de voz não está disponível. Digite seu pedido no campo abaixo.',{voice:false});
+      input?.focus();
+      return;
+    }
+    if(listening){try{recognition?.stop()}catch(error){}return}
+    recognition=new Recognition();
+    recognition.lang='pt-BR';recognition.interimResults=true;recognition.continuous=false;recognition.maxAlternatives=1;
+    let finalText='';
+    recognition.onstart=()=>{
+      listening=true;toggle?.classList.add('listening');listenButton?.classList.add('listening');
+      listenButton.querySelector('span').textContent='Estou ouvindo...';
+      setStatus('Pode falar seu pedido');
+    };
+    recognition.onresult=event=>{
+      let interim='';
+      for(let i=event.resultIndex;i<event.results.length;i++){
+        const part=event.results[i][0]?.transcript||'';
+        if(event.results[i].isFinal)finalText+=part;else interim+=part;
+      }
+      const shown=(finalText||interim).trim();
+      if(shown&&transcript){transcript.hidden=false;transcript.textContent='Você: '+shown}
+      if(shown&&input)input.value=shown;
+    };
+    recognition.onerror=event=>{
+      const msg=event.error==='not-allowed'?'O microfone não foi permitido. Você pode digitar o pedido abaixo.':'Não consegui ouvir direito. Tente novamente.';
+      setReply(msg,{voice:false});
+    };
+    recognition.onend=()=>{
+      listening=false;toggle?.classList.remove('listening');listenButton?.classList.remove('listening');
+      listenButton.querySelector('span').textContent='Falar meu pedido';
+      const text=(finalText||input?.value||'').trim();
+      if(text)interpret(text);else setStatus('Toque no microfone e fale seu pedido');
+    };
+    try{recognition.start()}catch(error){setReply('Não consegui abrir o microfone. Você pode digitar o pedido.',{voice:false})}
+  };
+
+  toggle.onclick=()=>panel?.classList.contains('show')?close():open();
+  closeButton?.addEventListener('click',close);
+  listenButton?.addEventListener('click',startListening);
+  sendButton?.addEventListener('click',()=>interpret(input?.value||''));
+  retryButton?.addEventListener('click',()=>{
+    clearDraft();context=[];if(input)input.value='';if(transcript){transcript.textContent='';transcript.hidden=true}
+    setReply('Pode falar de novo. Eu só adiciono depois que você confirmar.',{voice:false});
+    setStatus('Pronto para ouvir');input?.focus();
+  });
+  confirmButton?.addEventListener('click',()=>{
+    if(!draftItems.length)return;
+    draftItems.forEach(item=>cart.push({...item,flavors:(item.flavors||[]).map(f=>({...f}))}));
+    updateCart();
+    const qty=draftItems.reduce((sum,item)=>sum+Number(item.qty||0),0);
+    setReply(`${qty} ${qty===1?'item adicionado':'itens adicionados'} ao seu pedido.`);
+    showToast('Pedido por voz adicionado ao carrinho');
+    clearDraft();context=[];if(input)input.value='';
+    setTimeout(close,850);
+  });
+  input?.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();interpret(input.value)}});
+})();
+</script>
 
 <script id="lv-remote-updates-menu">
 (() => {
