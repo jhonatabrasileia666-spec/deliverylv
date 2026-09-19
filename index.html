@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="lv-updates-build" content="20260919-local-qwen-ai-v1">
-  <script src="./lv-updates.js?v=20260919-local-qwen-ai-v1"></script>
+  <meta name="lv-updates-build" content="20260919-server-ai-free-v2">
+  <script src="./lv-updates.js?v=20260919-server-ai-free-v2"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#11100f">
   <title>Delivery LV | Cardápio</title>
@@ -576,11 +576,6 @@
   let listening=false;
   let draftItems=[];
   let context=[];
-  let localGenerator=null;
-  let localGeneratorPromise=null;
-  let localModelFailed=false;
-  const LOCAL_MODEL_ID='onnx-community/Qwen2.5-0.5B-Instruct';
-  const LOCAL_MODEL_LABEL='Qwen 0.5B local';
 
   const speak=text=>{
     if(!('speechSynthesis'in window)||!text)return;
@@ -671,215 +666,6 @@
     }).join('');
     confirmButton.hidden=false;
   };
-  const localAiCatalog=()=>({
-    products:catalogProducts.map(product=>({
-      id:String(product.id),
-      name:product.name,
-      category:categorySlugFor(product),
-      description:String(product.description||'').slice(0,140),
-      base_price:Number(product.base_price||0),
-      price_addition:Number(product.price_addition||0),
-      sizes:productSizesFor(product).map(size=>({name:size.name,price:Number(size.price||0)})),
-      allow_edges:Boolean(product.allow_edges)
-    })),
-    pizza_sizes:catalogPizzaSizes.map(row=>({name:row.name,max_flavors:Number(row.max_flavors||1)})),
-    edges:catalogEdges.map(row=>({name:row.name,price:Number(row.price||0)}))
-  });
-
-  const extractLocalJson=value=>{
-    const raw=String(value||'').trim();
-    const fenced=raw.match(/\`\`\`(?:json)?\s*([\s\S]*?)\`\`\`/i);
-    const candidate=(fenced?.[1]||raw).trim();
-    try{return JSON.parse(candidate)}catch(error){}
-    const start=candidate.indexOf('{'),end=candidate.lastIndexOf('}');
-    if(start>=0&&end>start){try{return JSON.parse(candidate.slice(start,end+1))}catch(error){}}
-    return null;
-  };
-
-  const localAiPrompt=()=>`Você é a atendente virtual do Delivery LV. Converse em português brasileiro, de forma curta e natural.
-Você deve entender o cliente mesmo com fala informal, erros do reconhecimento de voz, abreviações e correções.
-REGRA MUITO IMPORTANTE: se o cliente disser "na verdade", "mudei", "não", "quero outro", "esquece isso" ou corrigir o que falou, a mensagem mais recente substitui a parte incompatível do pedido anterior. Não mantenha um item que ele acabou de cancelar.
-Você conhece SOMENTE o catálogo abaixo. Nunca invente produto, sabor, tamanho, ingrediente, borda ou preço.
-Você pode:
-- responder perguntas sobre o cardápio: mode="answer";
-- montar uma proposta de pedido: mode="ready";
-- fazer UMA pergunta curta se faltar informação: mode="clarify";
-- dizer que não encontrou: mode="not_found".
-Para pizza, tamanho é obrigatório. P=Pequena, M=Média, G=Grande. Respeite max_flavors.
-Para esfirra, calzone e bebida, use o produto real do catálogo.
-Só use borda se a pessoa pedir borda explicitamente.
-Nunca finalize a compra. O sistema vai validar preço e disponibilidade.
-Retorne SOMENTE JSON válido:
-{"mode":"ready|clarify|answer|not_found","reply":"resposta curta em português","items":[{"product_id":"uuid","quantity":1,"size":"Grande ou null","flavors":["uuid"],"edge":"Cheddar ou null","note":"texto ou null"}],"missing":[]}
-Quando mode for answer, clarify ou not_found, items=[].
-CATÁLOGO: ${JSON.stringify(localAiCatalog())}`;
-
-  const localAiMessages=text=>[
-    {role:'system',content:localAiPrompt()},
-    ...context.slice(-6).map(item=>({role:item.role==='assistant'?'assistant':'user',content:String(item.text||'').slice(0,600)})),
-    {role:'user',content:text}
-  ];
-
-  const updateLocalProgress=info=>{
-    if(!info)return;
-    if(info.status==='progress_total'&&Number.isFinite(info.progress)){
-      const pct=Math.max(0,Math.min(100,Math.round(info.progress)));
-      setStatus(`Instalando IA local · ${pct}%`);
-      if(provider)provider.textContent=`Baixando ${LOCAL_MODEL_LABEL} · ${pct}% · primeira vez apenas`;
-    }else if(info.status==='ready'){
-      setStatus('IA local pronta');
-    }else if(info.status==='download'){
-      setStatus('Baixando IA local pela primeira vez...');
-    }
-  };
-
-  const ensureLocalGenerator=async()=>{
-    if(localGenerator)return localGenerator;
-    if(localModelFailed)throw new Error('IA local indisponível neste aparelho');
-    if(!('gpu' in navigator)){
-      localModelFailed=true;
-      throw new Error('Este navegador não oferece WebGPU para a IA local');
-    }
-    if(localGeneratorPromise)return await localGeneratorPromise;
-    localGeneratorPromise=(async()=>{
-      setReply('Na primeira utilização eu preciso instalar a IA neste aparelho. O download é grande, mas é feito uma vez e fica salvo no navegador.',{voice:false});
-      setStatus('Preparando IA local...');
-      if(provider)provider.textContent='IA local · preparando download (~500 MB)';
-      const mod=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.0');
-      mod.env.allowLocalModels=false;
-      mod.env.useBrowserCache=true;
-      if('useWasmCache' in mod.env)mod.env.useWasmCache=true;
-      const generator=await mod.pipeline('text-generation',LOCAL_MODEL_ID,{
-        device:'webgpu',
-        dtype:'q4f16',
-        progress_callback:updateLocalProgress
-      });
-      localGenerator=generator;
-      try{await navigator.storage?.persist?.()}catch(error){}
-      if(provider)provider.textContent=`${LOCAL_MODEL_LABEL} · instalado neste aparelho`;
-      return generator;
-    })().catch(error=>{
-      localGeneratorPromise=null;
-      localModelFailed=true;
-      console.error('Falha ao carregar IA local:',error);
-      throw error;
-    });
-    return await localGeneratorPromise;
-  };
-
-  const normalizeLocalAiResult=data=>{
-    if(!data||typeof data!=='object')return null;
-    const allowedModes=new Set(['ready','clarify','answer','not_found']);
-    const mode=allowedModes.has(String(data.mode))?String(data.mode):'not_found';
-    const clean={mode,reply:String(data.reply||'').slice(0,500),items:[],missing:Array.isArray(data.missing)?data.missing.map(String).slice(0,5):[]};
-    if(mode!=='ready')return clean;
-    for(const raw of Array.isArray(data.items)?data.items:[]){
-      let product=catalogProducts.find(row=>String(row.id)===String(raw?.product_id||''));
-      if(!product&&raw?.product_name){
-        product=catalogProducts.find(row=>normalizeSizeName(row.name)===normalizeSizeName(raw.product_name));
-      }
-      if(!product)continue;
-      const category=categorySlugFor(product);
-      const spec={
-        product_id:String(product.id),
-        quantity:Math.max(1,Math.min(20,Number(raw.quantity)||1)),
-        size:raw.size?String(raw.size):null,
-        flavors:[],
-        edge:raw.edge?String(raw.edge):null,
-        note:raw.note?String(raw.note).slice(0,180):null
-      };
-      const availableSizes=productSizesFor(product);
-      if(category==='pizzas'){
-        const matchedSize=availableSizes.find(size=>normalizeSizeName(size.name)===normalizeSizeName(spec.size||''));
-        if(!matchedSize){
-          return{mode:'clarify',reply:'Qual tamanho da pizza: pequena, média ou grande?',items:[],missing:['size']};
-        }
-        spec.size=matchedSize.name;
-        const max=Math.max(1,Number(catalogPizzaSizes.find(row=>normalizeSizeName(row.name)===normalizeSizeName(spec.size))?.max_flavors||1));
-        const ids=Array.isArray(raw.flavors)?raw.flavors:[];
-        const valid=[];
-        for(const id of ids){
-          const flavor=catalogProducts.find(row=>String(row.id)===String(id)&&categorySlugFor(row)==='pizzas');
-          if(flavor&&!valid.includes(String(flavor.id)))valid.push(String(flavor.id));
-        }
-        if(!valid.includes(String(product.id)))valid.unshift(String(product.id));
-        spec.flavors=valid.slice(0,max);
-        if(spec.edge){
-          const validEdge=catalogEdges.find(row=>normalizeSizeName(row.name)===normalizeSizeName(spec.edge));
-          spec.edge=validEdge?.name||null;
-        }
-      }else{
-        spec.size=null;spec.flavors=[];spec.edge=null;
-      }
-      clean.items.push(spec);
-    }
-    if(!clean.items.length)return{mode:'not_found',reply:clean.reply||'Não consegui identificar o item. Pode falar de outro jeito?',items:[],missing:[]};
-    return clean;
-  };
-
-  const interpretWithLocalAI=async text=>{
-    const generator=await ensureLocalGenerator();
-    setStatus('IA local entendendo o pedido...');
-    if(provider)provider.textContent=`${LOCAL_MODEL_LABEL} · processando no aparelho`;
-    const output=await generator(localAiMessages(text),{
-      max_new_tokens:420,
-      do_sample:false,
-      repetition_penalty:1.05
-    });
-    const generated=output?.[0]?.generated_text;
-    let content='';
-    if(Array.isArray(generated)){
-      const last=generated.at(-1);
-      content=typeof last==='string'?last:String(last?.content||'');
-    }else{
-      content=String(generated||'');
-    }
-    const parsed=extractLocalJson(content);
-    if(!parsed)throw new Error('A IA local respondeu em formato inválido');
-    const normalized=normalizeLocalAiResult(parsed);
-    if(!normalized)throw new Error('Não consegui interpretar a resposta da IA local');
-    return{ok:true,provider:'qwen-local',...normalized};
-  };
-
-  const interpretViaServer=async text=>{
-    const response=await fetch(`${SUPABASE_URL}/functions/v1/lv-voice-ai`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY},
-      body:JSON.stringify({text,context:context.slice(-6)})
-    });
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok||!data.ok)throw new Error(data.message||'Não consegui entender o pedido.');
-    return data;
-  };
-
-  const renderInterpretedData=(data,text)=>{
-    context.push({role:'user',text},{role:'assistant',text:data.reply||''});
-    context=context.slice(-6);
-    if(provider){
-      const labels={
-        'qwen-local':'Qwen local no aparelho',
-        gemini:'Gemini Free',
-        groq:'Groq Free',
-        openrouter:'OpenRouter Free',
-        'local-free':'Modo local de segurança'
-      };
-      provider.textContent=(labels[data.provider]||'Assistente gratuito')+' · preços validados pelo cardápio';
-    }
-    if(data.mode==='ready'){
-      draftItems=(data.items||[]).map(buildDraftItem).filter(Boolean);
-      if(!draftItems.length)throw new Error('Não encontrei os itens no cardápio atual.');
-      renderDraft();
-    }
-    setReply(data.reply||'Confere seu pedido antes de adicionar.');
-    setStatus(
-      data.mode==='ready'?'Pedido entendido · confirme abaixo':
-      data.mode==='clarify'?'Preciso de mais uma informação':
-      data.mode==='answer'?'Pode continuar perguntando ou fazer seu pedido':
-      'Não encontrei esse item'
-    );
-    if(data.mode!=='ready'&&input)input.value='';
-  };
-
   const interpret=async raw=>{
     const text=String(raw||'').trim();
     if(text.length<2){setReply('Fala ou digita o que você quer pedir.',{voice:false});return}
@@ -890,15 +676,32 @@ CATÁLOGO: ${JSON.stringify(localAiCatalog())}`;
     if(sendButton)sendButton.disabled=true;
     if(listenButton)listenButton.disabled=true;
     try{
-      let data=null;
-      try{
-        data=await interpretWithLocalAI(text);
-      }catch(localError){
-        console.warn('IA local indisponível, usando fallback:',localError);
-        setStatus('Usando modo de segurança...');
-        data=await interpretViaServer(text);
+      const response=await fetch(`${SUPABASE_URL}/functions/v1/lv-voice-ai`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY},
+        body:JSON.stringify({text,context:context.slice(-6)})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data.ok)throw new Error(data.message||'Não consegui entender o pedido.');
+      context.push({role:'user',text},{role:'assistant',text:data.reply||''});
+      context=context.slice(-6);
+      if(provider){
+        const labels={gemini:'Gemini Free',groq:'Groq Free',openrouter:'OpenRouter Free','local-free':'Modo local'};
+        provider.textContent=(labels[data.provider]||'Assistente gratuito')+' · preços validados pelo cardápio';
       }
-      renderInterpretedData(data,text);
+      if(data.mode==='ready'){
+        draftItems=(data.items||[]).map(buildDraftItem).filter(Boolean);
+        if(!draftItems.length)throw new Error('Não encontrei os itens no cardápio atual.');
+        renderDraft();
+      }
+      setReply(data.reply||'Confere seu pedido antes de adicionar.');
+      setStatus(
+        data.mode==='ready'?'Pedido entendido · confirme abaixo':
+        data.mode==='clarify'?'Preciso de mais uma informação':
+        data.mode==='answer'?'Pode continuar perguntando ou fazer seu pedido':
+        'Não encontrei esse item'
+      );
+      if(data.mode!=='ready'&&input){input.value=''}
     }catch(error){
       console.error('Assistente por voz:',error);
       setReply(error?.message||'Não consegui entender agora. Tente novamente.');
@@ -909,7 +712,6 @@ CATÁLOGO: ${JSON.stringify(localAiCatalog())}`;
       if(listenButton)listenButton.disabled=false;
     }
   };
-
   const startListening=()=>{
     if(!Recognition){
       setReply('Neste navegador o reconhecimento de voz não está disponível. Digite seu pedido no campo abaixo.',{voice:false});
