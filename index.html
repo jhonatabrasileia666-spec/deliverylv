@@ -442,7 +442,7 @@
     if(pricingMode==='sizes'&&!configuredSizes.length){showToast('Este produto ainda não tem tamanhos disponíveis');return}
     const requestedSize=preferredSize||(category==='pizzas'?selectedPizzaCatalogSize:'');
     const initialSizeIndex=requestedSize?configuredSizes.findIndex(size=>normalizeSizeName(size.name)===normalizeSizeName(requestedSize)):0;
-    selected={id:product.id,name:product.name,ingredients:product.description||'',category,pricingMode,sizes:configuredSizes,size:initialSizeIndex>=0?initialSizeIndex:0,basePrice:Number(product.base_price||0),edge:null,qty:1,note:'',priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),promotion_active:Boolean(product.promotion_active),promotion_discount:Number(product.promotion_discount||0),promotion_size:product.promotion_size||'',image:product.image_url||pizzaImage,flavors:category==='pizzas'?[flavorInfo(product)]:[]};
+    selected={id:product.id,name:product.name,ingredients:product.description||'',category,pricingMode,sizes:configuredSizes,size:initialSizeIndex>=0?initialSizeIndex:0,basePrice:Number(product.base_price||0),edge:null,qty:1,note:'',priceAddition:Number(product.price_addition||0),allowEdges:Boolean(product.allow_edges),promotion_active:Boolean(product.promotion_active),promotion_discount:Number(product.promotion_discount||0),promotion_size:product.promotion_size||'',image:product.image_url||pizzaImage,flavors:category==='pizzas'?[flavorInfo(product)]:[],comboFlavors:[]};
     renderProduct();document.querySelector('#product-overlay').classList.add('show')
   }
   function currentPrice(){
