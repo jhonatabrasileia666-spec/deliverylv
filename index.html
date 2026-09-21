@@ -329,6 +329,20 @@
   const pizzaFlavorProducts=()=>catalogProducts.filter(product=>categorySlugFor(product)==='pizzas');
   const flavorSizePrice=(flavorId,sizeName)=>{const row=catalogProductSizes.find(size=>String(size.product_id)===String(flavorId)&&normalizeSizeName(size.name)===normalizeSizeName(sizeName)&&size.active!==false);const product=flavorProduct(flavorId);const regular=Number(row?.price||0)+Number(product?.price_addition||0);return applyProductPromotion(product,regular,sizeName)};
   const categorySlugFor=product=>categoryForProduct(product)?.slug||'';
+  const normalizeProductName=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const isEsfihaComboProduct=product=>categorySlugFor(product)==='esfirras'&&normalizeProductName(product?.name)==='combo esfirras';
+  const isSelectedEsfihaCombo=()=>selected?.category==='esfirras'&&normalizeProductName(selected?.name)==='combo esfirras';
+  const esfihaComboFlavorProducts=()=>catalogProducts
+    .filter(product=>categorySlugFor(product)==='esfirras')
+    .filter(product=>{
+      const name=normalizeProductName(product?.name);
+      return name!=='combo esfirras'&&name!=='unidade';
+    })
+    .sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
+  const comboFlavorNote=item=>Array.isArray(item?.comboFlavors)&&item.comboFlavors.length
+    ? `Sabores do combo: ${item.comboFlavors.map(flavor=>flavor.name).join(' / ')}`
+    : '';
+  const orderItemNote=item=>[comboFlavorNote(item),String(item?.note||'').trim()].filter(Boolean).join(' · ');
   function productSizesFor(product){
     const own=catalogProductSizes.filter(size=>String(size.product_id)===String(product?.id)&&size.active!==false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
     if(own.length)return own.map(size=>({name:size.name,price:Number(size.price||0)}));
