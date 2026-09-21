@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="lv-updates-build" content="20260920-esfiha-combo-flavors-v1">
-  <script src="./lv-updates.js?v=20260920-esfiha-combo-flavors-v1"></script>
+  <meta name="lv-updates-build" content="20260920-esfiha-combo-fee-fix-v1">
+  <script src="./lv-updates.js?v=20260920-esfiha-combo-fee-fix-v1"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#11100f">
   <title>Delivery LV | Cardápio</title>
@@ -289,7 +289,7 @@
   const parseMoneyInput=value=>{let raw=String(value||'').trim().replace(/\s/g,'').replace(/[^0-9.,]/g,'');if(!raw)return NaN;if(raw.includes(','))raw=raw.replace(/\./g,'').replace(',','.');const parsed=Number(raw);return Number.isFinite(parsed)?parsed:NaN};
   const deliveryFees=()=>{
     const hasPizza=cart.some(item=>item.category==='pizzas');
-    const esfihaQty=cart.filter(item=>item.category==='esfirras').reduce((sum,item)=>sum+Number(item.qty||0),0);
+    const esfihaQty=cart.filter(item=>item.category==='esfirras').reduce((sum,item)=>{const name=String(item.originalName||item.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();const units=name==='combo esfirras'?10:1;return sum+(Number(item.qty||0)*units)},0);
     const creditFee=checkoutType==='delivery'&&checkoutPayment==='card'&&checkoutCardType==='credit'?Math.max(0,Number(storeSettings.card_credit_fee||0)):0;
     const minQty=Math.max(1,Number(storeSettings.esfiha_min_free_delivery||5));
     const esfihaFee=checkoutType==='delivery'&&!hasPizza&&esfihaQty>0&&esfihaQty<minQty?Math.max(0,Number(storeSettings.esfiha_small_order_fee||0)):0;
@@ -968,7 +968,7 @@
 })();
 </script>
 
-<script src="./combo-flavors.js?v=20260920-esfiha-combo-flavors-v1"></script>\n</body>
+<script src="./combo-flavors.js?v=20260920-esfiha-combo-fee-fix-v1"></script>\n</body>
 </html>
 
 
