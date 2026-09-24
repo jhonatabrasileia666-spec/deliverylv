@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="lv-updates-build" content="20260920-esfiha-combo-fee-fix-v1">
-  <script src="./lv-updates.js?v=20260920-esfiha-combo-fee-fix-v1"></script>
+  <meta name="lv-updates-build" content="20260923-pizza-sizes-v2">
+  <script src="./lv-updates.js?v=20260923-pizza-sizes-v2"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#11100f">
   <title>Delivery LV | Cardápio</title>
@@ -345,13 +345,21 @@
   const orderItemNote=item=>[comboFlavorNote(item),String(item?.note||'').trim()].filter(Boolean).join(' · ');
   function productSizesFor(product){
     const own=catalogProductSizes.filter(size=>String(size.product_id)===String(product?.id)&&size.active!==false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
+    if(categorySlugFor(product)==='pizzas'){
+      const activeNames=new Set(catalogPizzaSizes.filter(size=>size.active!==false).map(size=>normalizeSizeName(size.name)));
+      const visibleOwn=own.filter(size=>activeNames.has(normalizeSizeName(size.name)));
+      if(visibleOwn.length)return visibleOwn.map(size=>({name:size.name,price:Number(size.price||0)}));
+      return catalogPizzaSizes.filter(size=>size.active!==false).map(size=>({name:size.name,price:Number(size.price||0)}));
+    }
     if(own.length)return own.map(size=>({name:size.name,price:Number(size.price||0)}));
-    if(categorySlugFor(product)==='pizzas')return sizes.map(size=>({name:size[0],price:Number(size[1])}));
     return [];
   }
-  const pizzaCatalogSizeChoices=[['Pequena','P'],['Média','M'],['Grande','G']];
+  function pizzaCatalogSizeChoices(){
+    const shortName=name=>{const normalized=normalizeSizeName(name);if(normalized==='pequena'||normalized==='p')return'P';if(normalized==='media'||normalized==='m')return'M';if(normalized==='grande'||normalized==='g')return'G';return String(name||'').slice(0,2).toUpperCase()};
+    return catalogPizzaSizes.filter(size=>size.active!==false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)).map(size=>[size.name,shortName(size.name)]);
+  }
   function pizzaCatalogSizeRow(product,sizeName=selectedPizzaCatalogSize){return productSizesFor(product).find(size=>normalizeSizeName(size.name)===normalizeSizeName(sizeName))||null}
-  function pizzaCatalogSizeFilter(){return `<div class="pizza-size-filter-wrap"><span class="pizza-size-filter-label">Tamanho da pizza</span><div class="pizza-size-filter" role="group" aria-label="Escolha o tamanho da pizza">${pizzaCatalogSizeChoices.map(([name,short])=>`<button type="button" class="pizza-size-choice ${normalizeSizeName(selectedPizzaCatalogSize)===normalizeSizeName(name)?'active':''}" data-pizza-catalog-size="${name}"><strong>${short}</strong><span>${name}</span></button>`).join('')}</div></div>`}
+  function pizzaCatalogSizeFilter(){const choices=pizzaCatalogSizeChoices();if(!choices.length)return'<div class="pizza-size-filter-wrap"><span class="pizza-size-filter-label">Nenhum tamanho de pizza disponível agora</span></div>';return `<div class="pizza-size-filter-wrap"><span class="pizza-size-filter-label">Tamanho da pizza</span><div class="pizza-size-filter" role="group" aria-label="Escolha o tamanho da pizza">${choices.map(([name,short])=>`<button type="button" class="pizza-size-choice ${normalizeSizeName(selectedPizzaCatalogSize)===normalizeSizeName(name)?'active':''}" data-pizza-catalog-size="${name}"><strong>${short}</strong><span>${name}</span></button>`).join('')}</div></div>`}
   function productEdges(){const rows=catalogEdges.length?catalogEdges.map(edge=>[edge.name,Number(edge.price||0)]):edges;return rows.filter(edge=>edge[0])}
   function productRegularStartingPrice(product){const sizeRows=productSizesFor(product);const base=(product.pricing_mode==='sizes'||sizeRows.length)&&sizeRows.length?Math.min(...sizeRows.map(size=>Number(size.price||0))):Number(product.base_price||0);return base+Number(product.price_addition||0)}
   function productStartingPrice(product){const sizeRows=productSizesFor(product),addition=Number(product.price_addition||0);if((product.pricing_mode==='sizes'||sizeRows.length)&&sizeRows.length)return Math.min(...sizeRows.map(size=>applyProductPromotion(product,Number(size.price||0)+addition,size.name)));return applyProductPromotion(product,Number(product.base_price||0)+addition,'')}
@@ -428,11 +436,14 @@
       db.from('categories').select('id,slug,name').eq('active',true).order('sort_order'),
       db.from('products').select('id,category_id,name,description,base_price,price_addition,image_url,active,sort_order,pricing_mode,allow_edges,promotion_active,promotion_discount,promotion_sort_order,promotion_size').eq('active',true).order('sort_order'),
       db.from('product_sizes').select('product_id,name,price,active,sort_order').eq('active',true).order('sort_order'),
-      db.from('pizza_sizes').select('name,max_flavors,active,sort_order').eq('active',true).order('sort_order'),
+      db.from('pizza_sizes').select('name,price,max_flavors,active,sort_order').eq('active',true).order('sort_order'),
       db.from('pizza_edges').select('name,price,active,sort_order').eq('active',true).order('sort_order')
     ]);
     if(categoryError||productError||sizeError||pizzaSizeError||edgeError)throw categoryError||productError||sizeError||pizzaSizeError||edgeError;
-    catalogCategories=categories||[];catalogProducts=products||[];catalogProductSizes=sizeRows||[];catalogPizzaSizes=pizzaSizeRows||[];catalogEdges=edgeRows||[];productLookup=null;await loadProductLookup();renderCatalog();await loadStoreStatus()
+    catalogCategories=categories||[];catalogProducts=products||[];catalogProductSizes=sizeRows||[];catalogPizzaSizes=pizzaSizeRows||[];catalogEdges=edgeRows||[];
+    const availablePizzaSizes=pizzaCatalogSizeChoices();
+    if(availablePizzaSizes.length&&!availablePizzaSizes.some(([name])=>normalizeSizeName(name)===normalizeSizeName(selectedPizzaCatalogSize)))selectedPizzaCatalogSize=availablePizzaSizes[0][0];
+    productLookup=null;await loadProductLookup();renderCatalog();await loadStoreStatus()
   }
   function openProduct(productId,preferredSize=''){
     const product=catalogProducts.find(item=>String(item.id)===String(productId));if(!product)return;
@@ -965,7 +976,7 @@
 })();
 </script>
 
-<script src="./combo-flavors.js?v=20260920-esfiha-combo-fee-fix-v1"></script>\n</body>
+<script src="./combo-flavors.js?v=20260923-pizza-sizes-v2"></script>\n</body>
 </html>
 
 
