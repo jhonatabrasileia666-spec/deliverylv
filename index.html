@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="lv-updates-build" content="20260923-pizza-sizes-v2">
-  <script src="./lv-updates.js?v=20260923-pizza-sizes-v2"></script>
+  <meta name="lv-updates-build" content="20260925-edge-manager-v1">
+  <script src="./lv-updates.js?v=20260925-edge-manager-v1"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#11100f">
   <title>Delivery LV | Cardápio</title>
@@ -360,7 +360,7 @@
   }
   function pizzaCatalogSizeRow(product,sizeName=selectedPizzaCatalogSize){return productSizesFor(product).find(size=>normalizeSizeName(size.name)===normalizeSizeName(sizeName))||null}
   function pizzaCatalogSizeFilter(){const choices=pizzaCatalogSizeChoices();if(!choices.length)return'<div class="pizza-size-filter-wrap"><span class="pizza-size-filter-label">Nenhum tamanho de pizza disponível agora</span></div>';return `<div class="pizza-size-filter-wrap"><span class="pizza-size-filter-label">Tamanho da pizza</span><div class="pizza-size-filter" role="group" aria-label="Escolha o tamanho da pizza">${choices.map(([name,short])=>`<button type="button" class="pizza-size-choice ${normalizeSizeName(selectedPizzaCatalogSize)===normalizeSizeName(name)?'active':''}" data-pizza-catalog-size="${name}"><strong>${short}</strong><span>${name}</span></button>`).join('')}</div></div>`}
-  function productEdges(){const rows=catalogEdges.length?catalogEdges.map(edge=>[edge.name,Number(edge.price||0)]):edges;return rows.filter(edge=>edge[0])}
+  function productEdges(){return catalogEdges.filter(edge=>edge.active!==false).map(edge=>[edge.name,Number(edge.price||0)]).filter(edge=>edge[0])}
   function productRegularStartingPrice(product){const sizeRows=productSizesFor(product);const base=(product.pricing_mode==='sizes'||sizeRows.length)&&sizeRows.length?Math.min(...sizeRows.map(size=>Number(size.price||0))):Number(product.base_price||0);return base+Number(product.price_addition||0)}
   function productStartingPrice(product){const sizeRows=productSizesFor(product),addition=Number(product.price_addition||0);if((product.pricing_mode==='sizes'||sizeRows.length)&&sizeRows.length)return Math.min(...sizeRows.map(size=>applyProductPromotion(product,Number(size.price||0)+addition,size.name)));return applyProductPromotion(product,Number(product.base_price||0)+addition,'')}
   function catalogCard(product){
@@ -465,7 +465,7 @@
   function renderProduct(){
     const sizeField=selected.pricingMode==='sizes'?`<div class="field"><span class="field-label">Tamanho</span><div class="option-grid">${selected.sizes.map((size,i)=>`<button class="option ${i===selected.size?'selected':''}" data-size="${i}"><strong>${size.name}</strong><span>${money(size.price)}</span></button>`).join('')}</div></div>`:'';
     const edgeOptions=productEdges();
-    const edgeField=selected.allowEdges?`<div class="field"><span class="field-label">Borda opcional</span><div class="option-grid"><button class="option ${!selected.edge?'selected':''}" data-edge="none"><strong>Sem borda</strong><span>Sem acréscimo</span></button>${edgeOptions.map((edge,i)=>`<button class="option ${selected.edge&&selected.edge[0]===edge[0]?'selected':''}" data-edge="${i}"><strong>${edge[0]}</strong><span>+ ${money(edge[1])}</span></button>`).join('')}</div></div>`:'';
+    const edgeField=selected.allowEdges&&edgeOptions.length?`<div class="field"><span class="field-label">Borda opcional</span><div class="option-grid"><button class="option ${!selected.edge?'selected':''}" data-edge="none"><strong>Sem borda</strong><span>Sem acréscimo</span></button>${edgeOptions.map((edge,i)=>`<button class="option ${selected.edge&&selected.edge[0]===edge[0]?'selected':''}" data-edge="${i}"><strong>${edge[0]}</strong><span>+ ${money(edge[1])}</span></button>`).join('')}</div></div>`:'';
     const maxFlavors=selectedMaxFlavors();
     const flavorField=selected.category==='pizzas'&&maxFlavors>1?`<div class="field"><span class="field-label">Sabores · escolha até ${maxFlavors} <small style="color:var(--muted);font-weight:600">(${selected.flavors.length}/${maxFlavors})</small></span><div class="option-grid flavor-grid">${pizzaFlavorProducts().map(product=>{const active=selected.flavors.some(flavor=>String(flavor.id)===String(product.id));const addition=Number(product.price_addition||0);return `<button type="button" class="option ${active?'selected':''}" data-flavor-id="${product.id}"><strong>${escapeCatalogText(product.name)}</strong><span>${addition>0?`+ ${money(addition)}`:'Sem acréscimo'}</span></button>`}).join('')}</div></div>`:'';
     const comboFlavorField=isSelectedEsfihaCombo()?`<div class="field"><span class="field-label">Sabores do combo · escolha até 3 <small style="color:var(--muted);font-weight:600">(${selected.comboFlavors.length}/3)</small></span><div class="option-grid flavor-grid">${esfihaComboFlavorProducts().map(product=>{const active=selected.comboFlavors.some(flavor=>String(flavor.id)===String(product.id));const type=String(product.description||'').replace(/^Esfirra\s+/i,'')||'sabor';return `<button type="button" class="option ${active?'selected':''}" data-combo-flavor-id="${product.id}"><strong>${escapeCatalogText(product.name)}</strong><span>${escapeCatalogText(type)}</span></button>`}).join('')}</div><small style="display:block;margin-top:8px;color:var(--muted);line-height:1.45">Escolha de 1 a 3 sabores para as 10 unidades.</small></div>`:'';
@@ -976,7 +976,7 @@
 })();
 </script>
 
-<script src="./combo-flavors.js?v=20260923-pizza-sizes-v2"></script>\n</body>
+<script src="./combo-flavors.js?v=20260925-edge-manager-v1"></script>\n</body>
 </html>
 
 
