@@ -37,10 +37,7 @@
         return;
       }
 
-      const noteField=document.querySelector('#note');
-      const customerNote=String(noteField?.value||'').trim();
-      const flavorText='Sabores do combo: '+list.map(flavor=>flavor.name).join(' / ');
-      if(noteField)noteField.value=customerNote?flavorText+' · '+customerNote:flavorText;
+      // Os sabores seguem em comboFlavors; o campo de observação fica só para o texto do cliente.
     }
   },true);
 })();
