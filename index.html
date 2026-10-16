@@ -444,7 +444,11 @@
     catalogCategories=categories||[];catalogProducts=products||[];catalogProductSizes=sizeRows||[];catalogPizzaSizes=pizzaSizeRows||[];catalogEdges=edgeRows||[];
     const availablePizzaSizes=pizzaCatalogSizeChoices();
     if(availablePizzaSizes.length&&!availablePizzaSizes.some(([name])=>normalizeSizeName(name)===normalizeSizeName(selectedPizzaCatalogSize)))selectedPizzaCatalogSize=availablePizzaSizes[0][0];
-    productLookup=null;await loadProductLookup();renderCatalog();await loadStoreStatus()
+    // O catálogo já contém os produtos e categorias: reutilizar a resposta evita duas consultas extras.
+    const slugByCategoryId=new Map(catalogCategories.map(category=>[category.id,category.slug]));
+    productLookup=new Map();
+    catalogProducts.forEach(product=>{const slug=slugByCategoryId.get(product.category_id);if(slug)productLookup.set(`${slug}|${product.name}`,product.id)});
+    renderCatalog();await loadStoreStatus()
   }
   function openProduct(productId,preferredSize=''){
     const product=catalogProducts.find(item=>String(item.id)===String(productId));if(!product)return;
@@ -734,7 +738,7 @@
   renderLastOrderFollowup();
   document.querySelector('#open-cart').onclick=()=>{renderCart();document.querySelector('#cart-overlay').classList.add('show')};document.querySelector('#bar-cart').onclick=()=>{renderCart();document.querySelector('#cart-overlay').classList.add('show')};document.querySelector('#voice-toggle').onclick=()=>document.querySelector('#voice-panel').classList.toggle('show');
   document.querySelectorAll('.category').forEach(button=>button.onclick=()=>{document.querySelectorAll('.category').forEach(item=>item.classList.remove('active'));button.classList.add('active');document.querySelector('#'+button.dataset.target).scrollIntoView({behavior:'smooth',block:'start'})});
-  lucide.createIcons();updateCart();loadCatalog().catch(error=>{console.error('Erro ao carregar catálogo do Supabase:',error);showToast('Não foi possível carregar o cardápio real')});window.setInterval(()=>loadStoreStatus(),30000);
+  lucide.createIcons();updateCart();loadCatalog().catch(error=>{console.error('Erro ao carregar catálogo do Supabase:',error);showToast('Não foi possível carregar o cardápio real')});window.setInterval(()=>{if(!document.hidden)loadStoreStatus()},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadStoreStatus()});
 </script>
   <script>
     document.addEventListener('click',event=>{
