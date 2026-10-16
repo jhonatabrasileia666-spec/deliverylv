@@ -14,7 +14,9 @@
   };
 
   let config, pending, checking = false, applying = false, holdCount = 0, nextAttempt = 0;
-  let pollTimer, applyTimer, lastCheck = 0;
+  // Sem polling periódico: verificamos no acesso/retorno e recebemos avisos via Realtime.
+  let applyTimer = null, lastCheck = 0, initialSyncStarted = false;
+  const latestReleases = new Map();
   const key = suffix => `deliverylv_updates_${config.app}_${suffix}`;
   const read = name => { try { return JSON.parse(sessionStorage.getItem(name) || 'null'); } catch { return null; } };
   const write = (name, value) => { sessionStorage.setItem(name, JSON.stringify(value)); };
@@ -62,24 +64,78 @@
     return rows;
   }
 
-  async function check() {
-    if (!config || checking || applying || navigator.onLine === false || document.visibilityState === 'hidden' || Date.now() - lastCheck < 1000) return;
+  // Uma única tentativa agendada existe SOMENTE quando foi solicitada atualização.
+  function scheduleApply(delay = 0) {
+    if (!pending) return;
+    if (applyTimer !== null) clearTimeout(applyTimer);
+    applyTimer = window.setTimeout(() => {
+      applyTimer = null;
+      void tryApply();
+    }, Math.max(0, delay));
+  }
+
+  function accept(rows) {
+    if (!Array.isArray(rows)) return;
+    let changed = false;
+    for (const row of rows) {
+      if (!row || !['menu', 'admin'].includes(row.app) || !uuid(row.revision)) continue;
+      const previous = latestReleases.get(row.app);
+      // Nunca substituir o sinal novo por uma resposta HTTP antiga em trânsito.
+      if (previous && Date.parse(row.requested_at || 0) < Date.parse(previous.requested_at || 0)) continue;
+      if (previous?.revision === row.revision && previous.requested_at === row.requested_at) continue;
+      latestReleases.set(row.app, row);
+      changed = true;
+      if (row.app === config?.app && row.revision !== read(key('applied')) && row.revision !== pending?.revision) {
+        pending = { ...row, detected: Date.now() };
+        notice('Atualização solicitada. Esta tela será recarregada em alguns segundos.');
+        scheduleApply(5000);
+      }
+    }
+    if (changed) config?.onStatus?.([...latestReleases.values()]);
+  }
+
+  // Não há intervalos de consulta ao banco: apenas uma leitura inicial e
+  // leituras pontuais ao reconectar ou voltar à aba.
+  async function check(force = false) {
+    if (!config || checking || applying || navigator.onLine === false || document.visibilityState === 'hidden' ||
+        (!force && Date.now() - lastCheck < 60000)) return;
     checking = true;
+    initialSyncStarted = true;
     lastCheck = Date.now();
     try {
-      const rows = await releases();
-      config.onStatus?.(rows);
-      const current = rows.find(row => row.app === config.app);
-      if (!uuid(current?.revision) || current.revision === read(key('applied'))) return;
-      if (pending?.revision !== current.revision) {
-        pending = { ...current, detected: Date.now() };
-        notice('Atualização solicitada. Esta tela será recarregada em alguns segundos.');
-      }
-      await tryApply();
+      accept(await releases());
     } catch (error) {
       config.onError?.(error);
-      // A operação da loja continua normalmente; a próxima consulta tenta novamente.
     } finally { checking = false; }
+  }
+
+  function startRealtime() {
+    const client = config.realtimeClient;
+    if (!client?.channel) {
+      void check();
+      return;
+    }
+    try {
+      // A tabela tem leitura pública limitada ao app/revisão/data.
+      // Somente o superadmin altera a revisão pela RPC existente.
+      client.channel('lv-remote-update-' + config.app)
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'lv_app_releases',
+          filter: 'app=eq.' + config.app
+        }, payload => accept([payload.new]))
+        .subscribe((status, error) => {
+          if (status === 'SUBSCRIBED') {
+            // Recupera sinais perdidos enquanto o aparelho esteve sem conexão.
+            void check(true);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('Canal de atualização LV indisponível:', error || status);
+          }
+        });
+    } catch (error) {
+      console.warn('Não foi possível acompanhar comandos de atualização:', error);
+    }
+    // Leitura única de contingência se a conexão inicial não se estabelecer.
+    window.setTimeout(() => { if (!initialSyncStarted) void check(); }, 3500);
   }
 
   async function refreshWorker() {
@@ -109,14 +165,19 @@
 
   async function tryApply() {
     if (!pending || applying || Date.now() < nextAttempt || navigator.onLine === false || document.visibilityState === 'hidden') return;
-    if (Date.now() - pending.detected < 5000) return;
+    if (Date.now() - pending.detected < 5000) {
+      scheduleApply(5000 - (Date.now() - pending.detected));
+      return;
+    }
     if (writes || holdCount || config.isBusy?.()) {
       notice('Atualização aguardando a operação ou edição em andamento terminar.');
+      scheduleApply(2000);
       return;
     }
     const attempt = read(key('attempt'));
     if (attempt?.revision === pending.revision && attempt.count >= 2 && Date.now() - attempt.at < 120000) {
       notice('A nova versão ainda não carregou. Tentaremos novamente em instantes.');
+      scheduleApply(Math.max(2000, 120000 - (Date.now() - attempt.at)));
       return;
     }
     applying = true;
@@ -146,6 +207,7 @@
       applying = false;
       nextAttempt = Date.now() + 30000;
       notice(`${error.message || 'Não foi possível atualizar agora.'} Tentaremos novamente.`);
+      scheduleApply(30000);
     }
   }
 
@@ -154,18 +216,31 @@
     config = options;
     const attempt = read(key('attempt'));
     if (attempt && new URL(location.href).searchParams.get('lv_update') === attempt.revision && build() === attempt.expectedBuild) {
-      try { write(key('applied'), attempt.revision); sessionStorage.removeItem(key('attempt')); } catch { /* sem armazenamento: tentativas permanecem limitadas pela navegação */ }
+      try { write(key('applied'), attempt.revision); sessionStorage.removeItem(key('attempt')); } catch { /* armazenamento indisponível */ }
     }
-    pollTimer = setInterval(check, 15000);
-    applyTimer = setInterval(tryApply, 1000);
-    ['online', 'focus', 'pageshow'].forEach(type => window.addEventListener(type, check));
-    document.addEventListener('visibilitychange', check);
-    check();
+    // No modo manual não existem setInterval/check permanente.
+    startRealtime();
+    window.addEventListener('online', () => {
+      void check(true);
+      if (pending) scheduleApply();
+    });
+    window.addEventListener('pageshow', event => {
+      if (event.persisted) {
+        void check();
+        if (pending) scheduleApply();
+      }
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        void check();
+        if (pending) scheduleApply();
+      }
+    });
   }
 
   window.LVUpdates = {
-    init, check, releases,
-    hold() { holdCount++; let released = false; return () => { if (!released) { holdCount--; released = true; } }; },
+    init, check, releases, accept,
+    hold() { holdCount++; let released = false; return () => { if (!released) { holdCount--; released = true; if (pending) scheduleApply(); } }; },
     // Snapshot restrito à aba, usado somente na atualização e descartado ao restaurar.
     saveDraft(value) { write(key('draft'), { value, at: Date.now() }); },
     takeDraft() {
