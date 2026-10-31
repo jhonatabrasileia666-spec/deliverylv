@@ -328,6 +328,20 @@
   const flavorInfo=product=>({id:product.id,name:product.name,priceAddition:Number(product.price_addition||0)});
   const pizzaFlavorProducts=()=>catalogProducts.filter(product=>categorySlugFor(product)==='pizzas');
   const flavorSizePrice=(flavorId,sizeName)=>{const row=catalogProductSizes.find(size=>String(size.product_id)===String(flavorId)&&normalizeSizeName(size.name)===normalizeSizeName(sizeName)&&size.active!==false);const product=flavorProduct(flavorId);const regular=Number(row?.price||0)+Number(product?.price_addition||0);return applyProductPromotion(product,regular,sizeName)};
+  // Para pizzas com vários sabores, cobra uma única base de tamanho e cada acréscimo separadamente.
+  // Mantém a promoção individual de cada sabor, sem duplicar o preço base.
+  const pizzaFlavorsPrice=(flavors,sizeName)=>{
+    if(!flavors?.length)return 0;
+    const portions=flavors.map(flavor=>{
+      const product=flavorProduct(flavor.id);
+      const row=catalogProductSizes.find(size=>String(size.product_id)===String(flavor.id)&&normalizeSizeName(size.name)===normalizeSizeName(sizeName)&&size.active!==false);
+      const base=applyProductPromotion(product,Number(row?.price||0),sizeName);
+      return {base,addition:flavorSizePrice(flavor.id,sizeName)-base};
+    });
+    const highestBase=Math.max(...portions.map(part=>part.base));
+    const additions=portions.reduce((sum,part)=>sum+part.addition,0);
+    return Math.round((highestBase+additions)*100)/100;
+  };
   const categorySlugFor=product=>categoryForProduct(product)?.slug||'';
   const normalizeProductName=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   const isEsfihaComboProduct=product=>categorySlugFor(product)==='esfirras'&&normalizeProductName(product?.name)==='combo esfirras';
@@ -467,7 +481,7 @@
     const comboPremium=isSelectedEsfihaCombo()
       ? (selected.comboFlavors||[]).reduce((sum,flavor)=>sum+comboFlavorPremium(flavorProduct(flavor.id)),0)
       : 0;
-    const discountable=selected.category==='pizzas'&&selected.flavors?.length?Math.max(...selected.flavors.map(flavor=>flavorSizePrice(flavor.id,sizeName))):applyProductPromotion(selected,base+Number(selected.priceAddition||0),sizeName||'');
+    const discountable=selected.category==='pizzas'&&selected.flavors?.length?pizzaFlavorsPrice(selected.flavors,sizeName):applyProductPromotion(selected,base+Number(selected.priceAddition||0),sizeName||'');
     return discountable+comboPremium+(selected.edge?Number(selected.edge[1]||0):0)
   }
   function renderProduct(){
@@ -809,7 +823,7 @@
     const sizeName=item.sizes?.[item.size]?.name;
     const base=item.pricingMode==='sizes'?Number(item.sizes?.[item.size]?.price||0):Number(item.basePrice||0);
     const discountable=item.category==='pizzas'&&item.flavors?.length
-      ?Math.max(...item.flavors.map(flavor=>flavorSizePrice(flavor.id,sizeName)))
+      ?pizzaFlavorsPrice(item.flavors,sizeName)
       :applyProductPromotion(item,base+Number(item.priceAddition||0),sizeName||'');
     return discountable+(item.edge?Number(item.edge[1]||0):0);
   };
