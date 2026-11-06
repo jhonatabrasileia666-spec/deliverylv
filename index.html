@@ -288,7 +288,7 @@
   const money=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const parseMoneyInput=value=>{let raw=String(value||'').trim().replace(/\s/g,'').replace(/[^0-9.,]/g,'');if(!raw)return NaN;if(raw.includes(','))raw=raw.replace(/\./g,'').replace(',','.');const parsed=Number(raw);return Number.isFinite(parsed)?parsed:NaN};
   const deliveryFees=()=>{
-    const hasPizza=cart.some(item=>item.category==='pizzas');
+    const hasPizza=cart.some(item=>item.category==='pizzas'||item.comboPizza===true);
     const esfihaQty=cart.filter(item=>item.category==='esfirras').reduce((sum,item)=>{const name=String(item.originalName||item.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();const units=name==='combo esfirras'?10:1;return sum+(Number(item.qty||0)*units)},0);
     const creditFee=checkoutType==='delivery'&&checkoutPayment==='card'&&checkoutCardType==='credit'?Math.max(0,Number(storeSettings.card_credit_fee||0)):0;
     const minQty=Math.max(1,Number(storeSettings.esfiha_min_free_delivery||5));
@@ -357,7 +357,7 @@
   const comboFlavorNote=item=>Array.isArray(item?.comboFlavors)&&item.comboFlavors.length
     ? `Sabores do combo: ${item.comboFlavors.map(flavor=>flavor.name).join(' / ')}`
     : '';
-  const orderItemNote=item=>[comboFlavorNote(item),String(item?.note||'').trim()].filter(Boolean).join(' · ');
+  const orderItemNote=item=>[comboFlavorNote(item),item?.comboPizza?'Pizza Grande: '+(item.flavors||[]).map(f=>f.name).join(' / ')+' · Pizza Pequena: Chocolate com Morango':'',String(item?.note||'').trim()].filter(Boolean).join(' · ');
   function productSizesFor(product){
     const own=catalogProductSizes.filter(size=>String(size.product_id)===String(product?.id)&&size.active!==false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
     if(categorySlugFor(product)==='pizzas'){
@@ -449,7 +449,7 @@
   async function loadCatalog(){
     const[{data:categories,error:categoryError},{data:products,error:productError},{data:sizeRows,error:sizeError},{data:pizzaSizeRows,error:pizzaSizeError},{data:edgeRows,error:edgeError}]=await Promise.all([
       db.from('categories').select('id,slug,name').eq('active',true).order('sort_order'),
-      db.from('products').select('id,category_id,name,description,base_price,price_addition,image_url,active,sort_order,pricing_mode,allow_edges,promotion_active,promotion_discount,promotion_sort_order,promotion_size').eq('active',true).order('sort_order'),
+      db.from('products').select('id,category_id,name,description,base_price,price_addition,image_url,active,sort_order,pricing_mode,allow_edges,promotion_active,promotion_discount,promotion_sort_order,promotion_size,combo_kind').eq('active',true).order('sort_order'),
       db.from('product_sizes').select('product_id,name,price,active,sort_order').eq('active',true).order('sort_order'),
       db.from('pizza_sizes').select('name,price,max_flavors,active,sort_order').eq('active',true).order('sort_order'),
       db.from('pizza_edges').select('name,price,active,sort_order').eq('active',true).order('sort_order')
@@ -615,6 +615,7 @@
         };
         if(item.sizeName)payload.size=item.sizeName;
         if(category==='pizzas'&&Array.isArray(item.flavors)&&item.flavors.length)payload.flavors=item.flavors.map(flavor=>flavor.id);
+        if(item.comboPizza)payload.combo_pizza_flavors=(item.flavors||[]).map(flavor=>flavor.id);
         if(category==='esfirras'&&normalizeProductName(item.originalName||item.name)==='combo esfirras'&&Array.isArray(item.comboFlavors)&&item.comboFlavors.length)payload.combo_flavors=item.comboFlavors.map(flavor=>flavor.id);
         if(item.edge)payload.edge=item.edge[0];
         return payload;
@@ -1012,7 +1013,8 @@
 })();
 </script>
 
-<script src="./combo-flavors.js?v=20261001-combo-carne-seca-house-number-v1"></script>\n</body>
+<script src="./combo-flavors.js?v=20261001-combo-carne-seca-house-number-v1"></script>
+<script src="./lv-pizza-combo.js?v=20261106-pizza-combo-v1"></script>\n</body>
 </html>
 
 
