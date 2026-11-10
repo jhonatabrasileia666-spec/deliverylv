@@ -7,7 +7,7 @@
   window.fetch = async (input, init) => {
     const url = new URL(typeof input === 'string' ? input : input.url, location.href);
     const method = String(init?.method || input?.method || 'GET').toUpperCase();
-    const tracked = url.hostname === 'nhvarlrbqbryrurpdwvp.supabase.co' && !['GET', 'HEAD'].includes(method);
+    const tracked = url.hostname === 'ydpnkturjvjfxjkwmhwg.supabase.co' && !['GET', 'HEAD'].includes(method);
     if (tracked) writes++;
     try { return await nativeFetch(input, init); }
     finally { if (tracked) setTimeout(() => { writes--; }, 1500); }

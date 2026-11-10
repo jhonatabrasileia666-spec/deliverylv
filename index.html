@@ -203,8 +203,8 @@
   ];
   const edges=[['Mista',15],['Queijo',20],['Chocolate',15],['Catupiry',10],['Cheddar',10]], sizes=[['Pequena',37],['Média',47],['Grande',65]];
   const savory=['Calabresa Catupiry','Calabresa Cheddar','Calabresa','Carne Moída','Requeijão','Frango Catupiry','Frango Cheddar','Frango','Mussarela','Carne Seca'], sweet=['Banana Chocolate','Banana Frita Queijo','Chocolate Granulado','Prestígio','Romeu e Julieta'], drinks=[['Kina Abacaxi',10],['Baré Guaraná',10]];
-  const SUPABASE_URL='https://nhvarlrbqbryrurpdwvp.supabase.co';
-  const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0nKLavga7G2XF-Ckz34tbw_VNbqfdo1';
+  const SUPABASE_URL='https://ydpnkturjvjfxjkwmhwg.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY="sb_publishable_g7LX3zbLXTZClu7VrIUZVw_n_4u9nUx";
   const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
   let productLookup=null;
   async function loadProductLookup(){
@@ -222,7 +222,7 @@
   }
   let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogPizzaSizes=[], catalogEdges=[], selectedPizzaCatalogSize='Pequena', checkoutType='pickup', checkoutPayment='pix', checkoutCardType='', cashNeedsChange='no', cashChangeFor='', checkoutStep='cart', customerName='', customerPhone='', customerAddress='', customerHouseNumber='', storeIsOpen=false, storeStatusReady=false;
   let storeSettings={auto_schedule_enabled:true,open_time:'18:00',close_time:'23:00',card_credit_fee:5,esfiha_min_free_delivery:5,esfiha_small_order_fee:5};
-  const LAST_ORDER_KEY='deliverylv_last_order_v2';
+  const LAST_ORDER_KEY='deliverylv_last_order_ydpnkturjvjfxjkwmhwg';
   let addingToOrder=null;
   function readLastOrder(){
     try{
@@ -1016,5 +1016,6 @@
 <script src="./combo-flavors.js?v=20261001-combo-carne-seca-house-number-v1"></script>
 <script src="./lv-pizza-combo.js?v=20261106-pizza-combo-v1"></script>\n</body>
 </html>
+
 
 
