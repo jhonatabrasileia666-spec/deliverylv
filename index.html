@@ -357,7 +357,7 @@
   const comboFlavorNote=item=>Array.isArray(item?.comboFlavors)&&item.comboFlavors.length
     ? `Sabores do combo: ${item.comboFlavors.map(flavor=>flavor.name).join(' / ')}`
     : '';
-  const orderItemNote=item=>[comboFlavorNote(item),item?.comboPizza?'Pizza Grande: '+(item.flavors||[]).map(f=>f.name).join(' / ')+' · Pizza Pequena: Chocolate com Morango':'',String(item?.note||'').trim()].filter(Boolean).join(' · ');
+  const orderItemNote=item=>[comboFlavorNote(item),item?.comboPizza?'Pizza Grande: '+(item.flavors||[]).map(f=>f.name).join(' / ')+' · Pizza Pequena doce: '+(item.smallSweet||'Não selecionada'):'',String(item?.note||'').trim()].filter(Boolean).join(' · ');
   function productSizesFor(product){
     const own=catalogProductSizes.filter(size=>String(size.product_id)===String(product?.id)&&size.active!==false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
     if(categorySlugFor(product)==='pizzas'){
@@ -627,7 +627,11 @@
         };
         if(item.sizeName)payload.size=item.sizeName;
         if(category==='pizzas'&&Array.isArray(item.flavors)&&item.flavors.length)payload.flavors=item.flavors.map(flavor=>flavor.id);
-        if(item.comboPizza)payload.combo_pizza_flavors=(item.flavors||[]).map(flavor=>flavor.id);
+        if(item.comboPizza){
+          if(!['Prestígio','Chocolate com Granulado','Banana Frita com Queijo'].includes(item.smallSweet))throw new Error('Atualize o cardápio e escolha o sabor doce da pizza pequena do combo');
+          payload.combo_pizza_flavors={grande:(item.flavors||[]).map(flavor=>flavor.id),pequena_doce:item.smallSweet};
+          if(item.drink)payload.combo_drink_id=item.drink.id;
+        }
         if(category==='esfirras'&&normalizeProductName(item.originalName||item.name)==='combo esfirras'&&Array.isArray(item.comboFlavors)&&item.comboFlavors.length)payload.combo_flavors=item.comboFlavors.map(flavor=>flavor.id);
         if(item.edge)payload.edge=item.edge[0];
         return payload;
@@ -666,7 +670,8 @@
       const itensWhatsApp=cart.map(item=>{
         const detalhes=[];
         if(item.sizeName)detalhes.push(`Tamanho ${item.sizeName}`);
-        if(Array.isArray(item.flavors)&&item.flavors.length>1)detalhes.push(`Sabores: ${item.flavors.map(flavor=>flavor.name).join(' / ')}`);
+        if(item.comboPizza)detalhes.push(`Pizza Grande: ${(item.flavors||[]).map(flavor=>flavor.name).join(' / ')}`,`Pizza Pequena doce: ${item.smallSweet||'Não selecionada'}`);
+        else if(Array.isArray(item.flavors)&&item.flavors.length>1)detalhes.push(`Sabores: ${item.flavors.map(flavor=>flavor.name).join(' / ')}`);
         if(item.edge)detalhes.push(`Borda ${item.edge[0]}`);
         if(Array.isArray(item.comboFlavors)&&item.comboFlavors.length)detalhes.push(`Sabores do combo: ${item.comboFlavors.map(flavor=>flavor.name).join(' / ')}`);
         if(item.note)detalhes.push(`Obs: ${item.note}`);
@@ -1026,7 +1031,7 @@
 </script>
 
 <script src="./combo-flavors.js?v=20261001-combo-carne-seca-house-number-v1"></script>
-<script src="./lv-pizza-combo.js?v=20261106-pizza-combo-v1"></script>\n</body>
+<script src="./lv-pizza-combo.js?v=20261117-combo-casal-doce-v2"></script>\n</body>
 </html>
 
 
