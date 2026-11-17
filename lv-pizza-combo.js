@@ -1,4 +1,5 @@
 (function installLvPizzaCombo(){
+  const sweetFlavors = ['Prestígio','Chocolate com Granulado','Banana Frita com Queijo'];
   const isCombo = product => product && product.combo_kind === 'grande_pequena_choco_morango';
   const isComboItem = item => Boolean(item && item.comboPizza);
   const oldOpenProduct = openProduct;
@@ -15,7 +16,7 @@
       category:categorySlugFor(product),comboPizza:true,pricingMode:'fixed',
       sizes:[],size:0,basePrice:Number(product.base_price||0),
       priceAddition:0,edge:null,drink:null,allowEdges:Boolean(product.allow_edges),qty:1,note:'',flavors:[],
-      image:product.image_url||pizzaImage
+      image:product.image_url||pizzaImage,smallSweet:null
     };
     renderProduct();
     document.querySelector('#product-overlay').classList.add('show');
@@ -29,6 +30,7 @@
   };
   function renderCombo(){
     const chosen=selected.flavors||[];
+    const sweetOptions=sweetFlavors.map((flavor,index)=>`<button type="button" class="option ${selected.smallSweet===flavor?'selected':''}" data-combo-sweet="${index}"><strong>${escapeCatalogText(flavor)}</strong><span>Inclusa no combo</span></button>`).join('');
     const available=pizzaFlavorProducts().filter(product=>productSizesFor(product).some(size=>normalizeSizeName(size.name)==='grande'));
     const cards=available.map(product=>{
       const active=chosen.some(flavor=>String(flavor.id)===String(product.id));
@@ -40,8 +42,13 @@
     const drinks=catalogProducts.filter(product=>categorySlugFor(product)==='bebidas'&&product.pricing_mode!=='sizes');
     const drinkField='<div class="field"><span class="field-label">Refrigerante opcional</span><div class="option-grid"><button type="button" class="option '+(!selected.drink?'selected':'')+'" data-combo-drink="none"><strong>Sem refrigerante</strong><span>Sem acréscimo</span></button>'+drinks.map(product=>'<button type="button" class="option '+(selected.drink&&String(selected.drink.id)===String(product.id)?'selected':'')+'" data-combo-drink="'+product.id+'"><strong>'+escapeCatalogText(product.name)+'</strong><span>+ '+money(Number(product.base_price||0)+Number(product.price_addition||0))+'</span></button>').join('')+'</div></div>';
     const host=document.querySelector('#product-detail');
-    host.innerHTML=`<div class="detail-hero"><img class="detail-image" src="${escapeCatalogText(selected.image)}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()"><div><h3>${escapeCatalogText(selected.name)}</h3><p>Pizza Grande à escolha + Pequena Chocolate com Morango. Valor base ${money(selected.basePrice)}.</p></div></div><div class="field"><span class="field-label">Pizza Pequena inclusa</span><div class="option-grid"><div class="option selected"><strong>Chocolate com Morango</strong><span>Já inclusa na promoção</span></div></div></div><div class="field"><span class="field-label">Escolha os sabores da pizza Grande (1 ou 2) <small style="color:var(--muted)">(${chosen.length}/2)</small></span><div class="option-grid flavor-grid">${cards}</div><small style="display:block;margin-top:8px;color:var(--muted)">Cada sabor especial soma seu adicional separadamente, sem mudar o valor base do combo.</small></div>${edgeField}${drinkField}<div class="field"><span class="field-label">Quantidade de combos</span><div class="quantity"><button class="step" data-combo-pizza-qty="-1"><i data-lucide="minus"></i></button><b>${selected.qty}</b><button class="step" data-combo-pizza-qty="1"><i data-lucide="plus"></i></button></div></div><div class="field"><label class="field-label" for="note">Alguma observação?</label><textarea class="textarea" id="note" placeholder="Ex.: sem cebola">${escapeCatalogText(selected.note||'')}</textarea></div><div class="total-line"><span>Total do combo</span><strong>${money(currentPrice()*selected.qty)}</strong></div><button class="primary" id="add-product" ${chosen.length?'':'disabled'}>Adicionar combo ao pedido <i data-lucide="shopping-bag"></i></button>`;
+    host.innerHTML=`<div class="detail-hero"><img class="detail-image" src="${escapeCatalogText(selected.image)}" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()"><div><h3>${escapeCatalogText(selected.name)}</h3><p>Pizza Grande à escolha + Pequena doce à escolha. Valor base ${money(selected.basePrice)}.</p></div></div><div class="field"><span class="field-label">Pizza Pequena doce · escolha 1 sabor</span><div class="option-grid">${sweetOptions}</div></div><div class="field"><span class="field-label">Escolha os sabores da pizza Grande (1 ou 2) <small style="color:var(--muted)">(${chosen.length}/2)</small></span><div class="option-grid flavor-grid">${cards}</div><small style="display:block;margin-top:8px;color:var(--muted)">Cada sabor especial soma seu adicional separadamente, sem mudar o valor base do combo.</small></div>${edgeField}${drinkField}<div class="field"><span class="field-label">Quantidade de combos</span><div class="quantity"><button class="step" data-combo-pizza-qty="-1"><i data-lucide="minus"></i></button><b>${selected.qty}</b><button class="step" data-combo-pizza-qty="1"><i data-lucide="plus"></i></button></div></div><div class="field"><label class="field-label" for="note">Alguma observação?</label><textarea class="textarea" id="note" placeholder="Ex.: sem cebola">${escapeCatalogText(selected.note||'')}</textarea></div><div class="total-line"><span>Total do combo</span><strong>${money(currentPrice()*selected.qty)}</strong></div><button class="primary" id="add-product" ${chosen.length&&sweetFlavors.includes(selected.smallSweet)?'':'disabled'}>Adicionar combo ao pedido <i data-lucide="shopping-bag"></i></button>`;
     lucide.createIcons();
+    host.querySelectorAll('[data-combo-sweet]').forEach(button=>button.onclick=()=>{
+      selected.note=host.querySelector('#note')?.value||'';
+      selected.smallSweet=sweetFlavors[Number(button.dataset.comboSweet)]||null;
+      renderProduct();
+    });
     host.querySelectorAll('[data-combo-pizza-flavor]').forEach(button=>button.onclick=()=>{
       selected.note=host.querySelector('#note')?.value||'';
       const product=flavorProduct(button.dataset.comboPizzaFlavor);
@@ -70,6 +77,7 @@
     });
     host.querySelector('#add-product').onclick=()=>{
       if(!selected.flavors.length){showToast('Escolha pelo menos um sabor para a Grande');return}
+      if(!sweetFlavors.includes(selected.smallSweet)){showToast('Escolha o sabor doce da pizza Pequena');return}
       selected.note=host.querySelector('#note')?.value||'';
       cart.push({...selected,originalName:selected.name,flavors:selected.flavors.map(flavor=>({...flavor})),sizeName:null,price:currentPrice()});
       closeOverlay('product-overlay');
@@ -83,7 +91,7 @@
     items.forEach((payload,index)=>{
       const item=cart[index];
       if(isComboItem(item)){
-        payload.combo_pizza_flavors=(item.flavors||[]).map(flavor=>flavor.id);
+        payload.combo_pizza_flavors={grande:(item.flavors||[]).map(flavor=>flavor.id),pequena_doce:item.smallSweet};
         if(item.edge)payload.edge=item.edge[0];
         if(item.drink)payload.combo_drink_id=item.drink.id;
       }
@@ -93,12 +101,12 @@
   cartItemDetail=function(item){
     if(!isComboItem(item))return oldCartItemDetail(item);
     const names=(item.flavors||[]).map(flavor=>flavor.name).join(' / ');
-    return `Pizza Grande: ${names} · Pizza Pequena: Chocolate com Morango${item.edge?' · Borda '+item.edge[0]:''}${item.drink?' · Bebida '+item.drink.name:''}${item.note?' · '+item.note:''}`;
+    return `Pizza Grande: ${names} · Pizza Pequena doce: ${item.smallSweet||'Não selecionada'}${item.edge?' · Borda '+item.edge[0]:''}${item.drink?' · Bebida '+item.drink.name:''}${item.note?' · '+item.note:''}`;
   };
   promotionCard=function(product){
     if(!isCombo(product))return oldPromotionCard(product);
     const image=product.image_url||pizzaImage;
-    return `<button type="button" class="promo-card" data-configure-product="${product.id}" aria-label="Montar combo de duas pizzas"><img src="${image}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()"><span class="promo-card-copy"><span class="promo-pill">COMBO 2 PIZZAS</span><h3>${escapeCatalogText(product.name)}</h3><small>Grande à escolha + Pequena Chocolate com Morango · borda e bebida opcionais</small><span class="promo-prices"><strong>${money(product.base_price)} + adicionais</strong></span></span></button>`;
+    return `<button type="button" class="promo-card" data-configure-product="${product.id}" aria-label="Montar combo de duas pizzas"><img src="${image}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()"><span class="promo-card-copy"><span class="promo-pill">COMBO 2 PIZZAS</span><h3>${escapeCatalogText(product.name)}</h3><small>Grande à escolha + Pequena doce à escolha · borda e bebida opcionais</small><span class="promo-prices"><strong>${money(product.base_price)} + adicionais</strong></span></span></button>`;
   };
   renderPromotions=function(){
     const host=document.querySelector('#promo-showcase'),track=document.querySelector('#promo-track');
