@@ -441,7 +441,9 @@
       sectionsHost.innerHTML='<div class="empty">Nenhum produto disponível no momento.</div>';
       return;
     }
-    categoriesHost.innerHTML='<span class="category-kicker">Cardápio</span>'+visibleCategories.map((category,index)=>`<button class="category ${index===0?'active':''}" data-target="${escapeCatalogText(category.slug)}"><i data-lucide="${categoryIcon(category.slug)}"></i>${escapeCatalogText(category.name||category.slug)}</button>`).join('');
+    const prevActiveSlug=document.querySelector('.categories .category.active')?.dataset.target;
+    const activeSlug=visibleCategories.some(category=>category.slug===prevActiveSlug)?prevActiveSlug:visibleCategories[0].slug;
+    categoriesHost.innerHTML='<span class="category-kicker">Cardápio</span>'+visibleCategories.map((category,index)=>`<button class="category ${category.slug===activeSlug?'active':''}" data-target="${escapeCatalogText(category.slug)}"><i data-lucide="${categoryIcon(category.slug)}"></i>${escapeCatalogText(category.name||category.slug)}</button>`).join('');
     sectionsHost.innerHTML=visibleCategories.map((category,index)=>{
       const isSpecial=category.slug==='pizzas-especiais';
       const isPizza=category.slug==='pizzas'||isSpecial;
@@ -451,7 +453,7 @@
       const products=isPizza?categoryProducts.filter(product=>pizzaCatalogSizeRow(product)):categoryProducts;
       const sizeFilter=isPizza?pizzaCatalogSizeFilter():'';
       const eyebrow=isPizza?'Escolha o tamanho':'Escolha seu produto';
-      return `<section class="section ${index===0?'active':''}" id="${escapeCatalogText(category.slug)}"><div class="section-head"><div><span class="eyebrow">${eyebrow}</span><h2>${escapeCatalogText(category.name||category.slug)}</h2></div><p>${products.length} ${products.length===1?'opção':'opções'}</p></div>${sizeFilter}<div class="product-grid">${products.map(catalogCard).join('')}</div></section>`;
+      return `<section class="section ${category.slug===activeSlug?'active':''}" id="${escapeCatalogText(category.slug)}"><div class="section-head"><div><span class="eyebrow">${eyebrow}</span><h2>${escapeCatalogText(category.name||category.slug)}</h2></div><p>${products.length} ${products.length===1?'opção':'opções'}</p></div>${sizeFilter}<div class="product-grid">${products.map(catalogCard).join('')}</div></section>`;
     }).join('');
     renderPromotions();
     lucide.createIcons();
