@@ -296,7 +296,7 @@
     return{creditFee,esfihaFee,esfihaQty,hasPizza,total:creditFee+esfihaFee,minQty};
   };
   const escapeCatalogText=value=>String(value??'').replace(/[&<>\"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[char]));
-  const categoryIcon=slug=>({pizzas:'pizza',esfirras:'croissant',bebidas:'cup-soda',calzone:'sandwich'}[slug]||'utensils');
+  const categoryIcon=slug=>({pizzas:'pizza','pizzas-especiais':'pizza',esfirras:'croissant',bebidas:'cup-soda',calzone:'sandwich'}[slug]||'utensils');
   function applyStoreStatus(){
     const host=document.querySelector('#store-status'),text=document.querySelector('#store-status-text');
     if(text)text.textContent=storeStatusReady?(storeIsOpen?'Aberto agora':'Fechado agora'):'Status indisponível';
@@ -428,7 +428,14 @@
     const categoriesHost=document.querySelector('.categories');
     const sectionsHost=document.querySelector('.menu-sections');
     if(!categoriesHost||!sectionsHost)return;
-    const visibleCategories=catalogCategories.filter(category=>catalogProducts.some(product=>String(product.category_id)===String(category.id)));
+    // Exibe os sabores premium em uma aba própria, mantendo a categoria de pizzas no banco.
+    const isSpecialPizza=product=>categorySlugFor(product)==='pizzas'&&Number(product.price_addition||0)>0;
+    const visibleCategories=catalogCategories.flatMap(category=>{
+      if(category.slug!=='pizzas')return catalogProducts.some(product=>String(product.category_id)===String(category.id))?[category]:[];
+      const hasNormal=catalogProducts.some(product=>String(product.category_id)===String(category.id)&&!isSpecialPizza(product));
+      const hasSpecial=catalogProducts.some(product=>String(product.category_id)===String(category.id)&&isSpecialPizza(product));
+      return [...(hasNormal?[category]:[]),...(hasSpecial?[{id:'pizzas-especiais',slug:'pizzas-especiais',name:'Pizzas Especiais'}]:[])];
+    });
     if(!visibleCategories.length){
       categoriesHost.innerHTML='<span class="category-kicker">Cardápio</span>';
       sectionsHost.innerHTML='<div class="empty">Nenhum produto disponível no momento.</div>';
@@ -436,8 +443,11 @@
     }
     categoriesHost.innerHTML='<span class="category-kicker">Cardápio</span>'+visibleCategories.map((category,index)=>`<button class="category ${index===0?'active':''}" data-target="${escapeCatalogText(category.slug)}"><i data-lucide="${categoryIcon(category.slug)}"></i>${escapeCatalogText(category.name||category.slug)}</button>`).join('');
     sectionsHost.innerHTML=visibleCategories.map((category,index)=>{
-      const categoryProducts=catalogProducts.filter(product=>String(product.category_id)===String(category.id));
-      const isPizza=category.slug==='pizzas';
+      const isSpecial=category.slug==='pizzas-especiais';
+      const isPizza=category.slug==='pizzas'||isSpecial;
+      const categoryProducts=isSpecial
+        ?catalogProducts.filter(isSpecialPizza)
+        :catalogProducts.filter(product=>String(product.category_id)===String(category.id)&&(!isPizza||!isSpecialPizza(product)));
       const products=isPizza?categoryProducts.filter(product=>pizzaCatalogSizeRow(product)):categoryProducts;
       const sizeFilter=isPizza?pizzaCatalogSizeFilter():'';
       const eyebrow=isPizza?'Escolha o tamanho':'Escolha seu produto';
