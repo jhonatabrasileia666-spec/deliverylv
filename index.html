@@ -220,7 +220,7 @@
     productResult.data.forEach(product=>{const slug=slugByCategoryId.get(product.category_id);if(slug)productLookup.set(`${slug}|${product.name}`,product.id)});
     return productLookup;
   }
-  let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogPizzaSizes=[], catalogEdges=[], selectedPizzaCatalogSize='Pequena', checkoutType='pickup', checkoutPayment='pix', checkoutCardType='', cashNeedsChange='no', cashChangeFor='', checkoutStep='cart', customerName='', customerPhone='', customerAddress='', customerHouseNumber='', storeIsOpen=false, storeStatusReady=false;
+  let cart=[], selected=null, catalogProducts=[], catalogCategories=[], catalogProductSizes=[], catalogPizzaSizes=[], catalogEdges=[], selectedPizzaCatalogSize='Pequena', checkoutType='pickup', checkoutNeighborhood='', checkoutPayment='pix', checkoutCardType='', cashNeedsChange='no', cashChangeFor='', checkoutStep='cart', customerName='', customerPhone='', customerAddress='', customerHouseNumber='', storeIsOpen=false, storeStatusReady=false;
   let storeSettings={auto_schedule_enabled:true,open_time:'18:00',close_time:'23:00',card_credit_fee:5,esfiha_min_free_delivery:5,esfiha_small_order_fee:5};
   const LAST_ORDER_KEY='deliverylv_last_order_ydpnkturjvjfxjkwmhwg';
   let addingToOrder=null;
@@ -287,13 +287,22 @@
   }
   const money=value=>Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const parseMoneyInput=value=>{let raw=String(value||'').trim().replace(/\s/g,'').replace(/[^0-9.,]/g,'');if(!raw)return NaN;if(raw.includes(','))raw=raw.replace(/\./g,'').replace(',','.');const parsed=Number(raw);return Number.isFinite(parsed)?parsed:NaN};
+  const deliveryNeighborhoods=[
+    {code:'centro',name:'Centro',price:5},
+    {code:'nossa_senhora_portelinha',name:'Nossa Senhora (Portelinha)',price:3},
+    {code:'penicao',name:'Penicão',price:4},
+    {code:'paraiso_lixao',name:'Paraíso (Lixão)',price:5}
+  ];
+  const selectedNeighborhood=()=>deliveryNeighborhoods.find(bairro=>bairro.code===checkoutNeighborhood);
   const deliveryFees=()=>{
     const hasPizza=cart.some(item=>item.category==='pizzas'||item.comboPizza===true);
-    const esfihaQty=cart.filter(item=>item.category==='esfirras').reduce((sum,item)=>{const name=String(item.originalName||item.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();const units=name==='combo esfirras'?10:1;return sum+(Number(item.qty||0)*units)},0);
+    const esfihaQty=cart.filter(item=>item.category==='esfirras').reduce((sum,item)=>{const name=String(item.originalName||item.name||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();const units=name==='combo esfirras'?10:1;return sum+(Number(item.qty||0)*units)},0);
     const creditFee=checkoutType==='delivery'&&checkoutPayment==='card'&&checkoutCardType==='credit'?Math.max(0,Number(storeSettings.card_credit_fee||0)):0;
     const minQty=Math.max(1,Number(storeSettings.esfiha_min_free_delivery||5));
-    const esfihaFee=checkoutType==='delivery'&&!hasPizza&&esfihaQty>0&&esfihaQty<minQty?Math.max(0,Number(storeSettings.esfiha_small_order_fee||0)):0;
-    return{creditFee,esfihaFee,esfihaQty,hasPizza,total:creditFee+esfihaFee,minQty};
+    // Mantém as promoções: pizzas e pedidos com esfihas suficientes não pagam frete.
+    const freeDelivery=hasPizza||esfihaQty>=minQty;
+    const neighborhoodFee=checkoutType==='delivery'&&!freeDelivery?Number(selectedNeighborhood()?.price||0):0;
+    return{creditFee,neighborhoodFee,esfihaQty,hasPizza,freeDelivery,total:creditFee+neighborhoodFee,minQty};
   };
   const escapeCatalogText=value=>String(value??'').replace(/[&<>\"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[char]));
   const categoryIcon=slug=>({pizzas:'pizza','pizzas-especiais':'pizza',esfirras:'croissant',bebidas:'cup-soda',calzone:'sandwich'}[slug]||'utensils');
@@ -585,12 +594,14 @@
     customerPhone=document.querySelector('#customer-phone')?.value.trim()||customerPhone;
     customerAddress=document.querySelector('#customer-address')?.value.trim()||customerAddress;
     customerHouseNumber=document.querySelector('#customer-house-number')?.value.trim() ?? customerHouseNumber;
+    checkoutNeighborhood=document.querySelector('#customer-neighborhood')?.value||checkoutNeighborhood;
     cashChangeFor=document.querySelector('#cash-change-for')?.value.trim()||cashChangeFor;
     const checkoutScreen=document.querySelector('[data-checkout-screen="checkout"]');
     const nameInput=document.querySelector('#customer-name');
     const phoneInput=document.querySelector('#customer-phone');
     const addressInput=document.querySelector('#customer-address');
     const houseNumberInput=document.querySelector('#customer-house-number');
+    const neighborhoodInput=document.querySelector('#customer-neighborhood');
     const changeInput=document.querySelector('#cash-change-for');
     const phoneDigits=customerPhone.replace(/\D/g,'');
     const subtotal=cart.reduce((sum,item)=>sum+item.price*item.qty,0);
@@ -601,11 +612,13 @@
     phoneInput?.classList.toggle('invalid',phoneDigits.length<8||phoneDigits.length>15);
     addressInput?.classList.toggle('invalid',checkoutType==='delivery'&&!customerAddress);
     houseNumberInput?.classList.toggle('invalid',checkoutType==='delivery'&&!customerHouseNumber);
+    neighborhoodInput?.classList.toggle('invalid',checkoutType==='delivery'&&!selectedNeighborhood());
     changeInput?.classList.toggle('invalid',checkoutType==='delivery'&&checkoutPayment==='cash'&&cashNeedsChange==='yes'&&(!Number.isFinite(changeAmount)||changeAmount<=checkoutTotal));
     checkoutScreen?.classList.remove('checkout-shake');
     void checkoutScreen?.offsetWidth;
     if(!customerName){checkoutScreen?.classList.add('checkout-shake');showToast('Digite seu nome para continuar');nameInput?.focus();return}
     if(phoneDigits.length<8||phoneDigits.length>15){checkoutScreen?.classList.add('checkout-shake');showToast('Digite um telefone válido para contato');phoneInput?.focus();return}
+    if(checkoutType==='delivery'&&!selectedNeighborhood()){checkoutScreen?.classList.add('checkout-shake');showToast('Selecione o bairro da entrega');neighborhoodInput?.focus();return}
     if(checkoutType==='delivery'&&!customerAddress){checkoutScreen?.classList.add('checkout-shake');showToast('Digite sua localização para a entrega');addressInput?.focus();return}
     if(checkoutType==='delivery'&&!customerHouseNumber){checkoutScreen?.classList.add('checkout-shake');showToast('Informe o número da casa para confirmar a entrega');houseNumberInput?.focus();return}
     if(!checkoutType||!checkoutPayment){showToast('Escolha o tipo e o pagamento do pedido');return}
@@ -642,7 +655,7 @@
         else paymentMethod=checkoutPayment;
       }
       const orderNotes=checkoutType==='delivery'&&checkoutPayment==='cash'&&cashNeedsChange==='yes'&&Number.isFinite(changeAmount)?`Troco para ${money(changeAmount)}`:'';
-      const deliveryAddress=checkoutType==='delivery'?`${customerAddress}, Nº ${customerHouseNumber}`:customerAddress;
+      const deliveryAddress=checkoutType==='delivery'?`${selectedNeighborhood().name} — ${customerAddress}, Nº ${customerHouseNumber}`:customerAddress;
       const pedido={
         customer_name:customerName,
         customer_phone:customerPhone,
@@ -651,6 +664,7 @@
         customer_address:deliveryAddress,
         address:deliveryAddress,
         house_number:customerHouseNumber,
+        delivery_neighborhood:checkoutType==='delivery'?checkoutNeighborhood:null,
         notes:orderNotes,
         items
       };
@@ -688,7 +702,7 @@
         checkoutType==='delivery'&&deliveryAddress?`📍 Endereço: ${deliveryAddress}`:'',
         `💳 Pagamento: ${pagamentoPedidoLabel}`,
         fees.creditFee>0?`💳 Taxa do cartão de crédito: ${money(fees.creditFee)}`:'',
-        fees.esfihaFee>0?`🛵 Taxa de entrega (menos de ${fees.minQty} esfihas): ${money(fees.esfihaFee)}`:'',
+        fees.neighborhoodFee>0?`🛵 Taxa de entrega (${selectedNeighborhood().name}): ${money(fees.neighborhoodFee)}`:'',
         checkoutType==='delivery'&&checkoutPayment==='cash'&&cashNeedsChange==='yes'&&Number.isFinite(changeAmount)?`💵 Troco para: ${money(changeAmount)}`:'',
         '',
         '*Itens:*',
@@ -711,6 +725,7 @@
       cart=[];
       checkoutStep='cart';
       checkoutType='pickup';
+      checkoutNeighborhood='';
       checkoutPayment='pix';
       checkoutCardType='';
       cashNeedsChange='no';
@@ -733,19 +748,19 @@
   function renderCart(){
     const subtotal=cart.reduce((sum,item)=>sum+item.price*item.qty,0),detail=document.querySelector('#cart-detail');
     if(!cart.length){detail.innerHTML='<div class="empty">Seu carrinho ainda está vazio.<br>Escolha algo delicioso para começar.</div>';return}
-    const fees=addingToOrder?{creditFee:0,esfihaFee:0,total:0,minQty:Number(storeSettings.esfiha_min_free_delivery||5),esfihaQty:0,hasPizza:false}:deliveryFees(),creditFee=fees.creditFee,esfihaFee=fees.esfihaFee,checkoutTotal=subtotal+fees.total;
+    const fees=addingToOrder?{creditFee:0,neighborhoodFee:0,total:0,minQty:Number(storeSettings.esfiha_min_free_delivery||5),esfihaQty:0,hasPizza:false,freeDelivery:false}:deliveryFees(),creditFee=fees.creditFee,neighborhoodFee=fees.neighborhoodFee,checkoutTotal=subtotal+fees.total;
     const cardChoice=checkoutPayment==='card'?`<div class="checkout-field"><strong>Débito ou crédito?</strong><div class="checkout-options" style="grid-template-columns:repeat(2,minmax(0,1fr))"><button class="checkout-option ${checkoutCardType==='debit'?'selected':''}" data-checkout-card-type="debit">Débito</button><button class="checkout-option ${checkoutCardType==='credit'?'selected':''}" data-checkout-card-type="credit">Crédito</button></div>${checkoutCardType==='credit'&&creditFee>0?`<div style="margin-top:8px;color:var(--orange-2);font-size:11px;font-weight:800">Taxa do cartão: + ${money(creditFee)}</div>`:''}</div>`:'';
     const cashChoice=checkoutPayment==='cash'?`<div class="checkout-field"><strong>Precisa de troco?</strong><div class="checkout-options" style="grid-template-columns:repeat(2,minmax(0,1fr))"><button class="checkout-option ${cashNeedsChange==='no'?'selected':''}" data-cash-change="no">Não</button><button class="checkout-option ${cashNeedsChange==='yes'?'selected':''}" data-cash-change="yes">Sim</button></div>${cashNeedsChange==='yes'?`<div style="margin-top:9px"><input class="checkout-input" id="cash-change-for" value="${escapeCatalogText(cashChangeFor)}" placeholder="Troco para quanto? Ex.: 100,00" inputmode="decimal"><div style="margin-top:6px;color:var(--muted);font-size:10px">Informe o valor que será entregue ao motoboy.</div></div>`:''}</div>`:'';
     const paymentField=checkoutType==='delivery'?`<div class="checkout-field"><strong>Como você vai pagar?</strong><div class="checkout-options">${[['pix','Pix'],['card','Cartão'],['cash','Dinheiro']].map(([value,label])=>`<button class="checkout-option ${checkoutPayment===value?'selected':''}" data-checkout-payment="${value}">${label}</button>`).join('')}</div></div>${cardChoice}${cashChoice}`:'';
-    const deliveryFeeInfo=checkoutType==='delivery'?`<div style="margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:10px;line-height:1.5">${fees.hasPizza?'Pizza: entrega sem taxa.':fees.esfihaQty>0?(fees.esfihaFee>0?`Esfirras: + ${money(fees.esfihaFee)} abaixo de ${fees.minQty} unidades.`:`Esfirras: entrega sem taxa a partir de ${fees.minQty} unidades.`):'Pizza não tem taxa de entrega. Esfirras abaixo do mínimo podem ter taxa.'}</div>`:'';
-    const feeSummary=(creditFee||esfihaFee)?`<div style="display:grid;gap:6px;margin-top:14px;padding:12px;background:#24201d;border:1px solid var(--line);border-radius:10px;font-size:11px">${esfihaFee?`<div style="display:flex;justify-content:space-between;gap:12px"><span>Taxa entrega esfihas</span><strong>+${money(esfihaFee)}</strong></div>`:''}${creditFee?`<div style="display:flex;justify-content:space-between;gap:12px"><span>Taxa cartão crédito</span><strong>+${money(creditFee)}</strong></div>`:''}</div><div class="total-line"><span>Total final</span><strong>${money(checkoutTotal)}</strong></div>`:'';
+    const deliveryFeeInfo=checkoutType==='delivery'?`<div style="margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:11px;line-height:1.5">${!selectedNeighborhood()?'Escolha um bairro para consultar a taxa de entrega.':fees.freeDelivery?'Entrega grátis para pizzas ou pedidos com pelo menos '+fees.minQty+' esfihas.':'Taxa de entrega para '+selectedNeighborhood().name+': '+money(neighborhoodFee)}</div>`:'';
+    const feeSummary=(creditFee||neighborhoodFee)?`<div style="display:grid;gap:6px;margin-top:14px;padding:12px;background:#24201d;border:1px solid var(--line);border-radius:10px;font-size:11px">${neighborhoodFee?`<div style="display:flex;justify-content:space-between;gap:12px"><span>Taxa de entrega (${escapeCatalogText(selectedNeighborhood()?.name||'Bairro')})</span><strong>+${money(neighborhoodFee)}</strong></div>`:''}${creditFee?`<div style="display:flex;justify-content:space-between;gap:12px"><span>Taxa cartão crédito</span><strong>+${money(creditFee)}</strong></div>`:''}</div><div class="total-line"><span>Total final</span><strong>${money(checkoutTotal)}</strong></div>`:'';
     const additionInfo=addingToOrder?`<div class="addition-banner"><strong>Complemento do pedido #${addingToOrder.orderId}</strong><br>Os itens abaixo serão adicionados ao mesmo pedido. O total final será recalculado no servidor.</div>`:'';
     const cartActionButton=addingToOrder
       ?`<button class="primary" id="add-to-existing-order">Adicionar ao pedido #${addingToOrder.orderId} <i data-lucide="plus"></i></button><button class="checkout-back" id="cancel-addition-mode">Fazer um pedido separado</button>`
       :`<button class="primary" id="go-checkout">Continuar para finalizar <i data-lucide="arrow-right"></i></button>`;
-    detail.innerHTML=`<div class="checkout-step ${checkoutStep==='cart'?'active':''}" data-checkout-screen="cart">${additionInfo}<div class="cart-list">${cart.map((item,index)=>`<div class="cart-item"><div class="cart-item-main"><div><h3>${item.name}</h3><p>${cartItemDetail(item)}</p></div><strong>${money(item.price*item.qty)}</strong></div><div class="cart-controls"><button data-cart-action="minus" data-index="${index}" aria-label="Diminuir"><i data-lucide="minus"></i></button><b>${item.qty}</b><button data-cart-action="plus" data-index="${index}" aria-label="Aumentar"><i data-lucide="plus"></i></button><button class="remove" data-cart-action="remove" data-index="${index}">Remover</button></div></div>`).join('')}</div><div class="total-line"><span>${addingToOrder?'Novos itens':'Total do pedido'}</span><strong>${money(subtotal)}</strong></div>${cartActionButton}</div><div class="checkout-step ${checkoutStep==='checkout'?'active':''}" data-checkout-screen="checkout"><div class="checkout-tabs"><button class="checkout-tab active">Finalizar pedido</button><button class="checkout-tab" id="checkout-summary-tab">${money(checkoutTotal)}</button></div><div class="checkout-fields"><div class="checkout-field"><strong>Seu nome</strong><input class="checkout-input" id="customer-name" value="${escapeCatalogText(customerName)}" placeholder="Digite seu nome" autocomplete="name"></div><div class="checkout-field"><strong>Telefone / WhatsApp</strong><input class="checkout-input" id="customer-phone" value="${escapeCatalogText(customerPhone)}" placeholder="(68) 99999-9999" inputmode="tel" autocomplete="tel"></div><div class="checkout-field"><strong>Como você quer receber?</strong><div class="checkout-options">${[['delivery','Entrega'],['pickup','Retirada']].map(([value,label])=>`<button class="checkout-option ${checkoutType===value?'selected':''}" data-checkout-type="${value}">${label}</button>`).join('')}</div>${checkoutType==='delivery'?'<div class="checkout-location"><input class="checkout-input" id="customer-address" value="'+escapeCatalogText(customerAddress)+'" placeholder="Rua, bairro ou localização" autocomplete="street-address"><button type="button" class="gps-button" id="gps-button" title="Usar GPS"><i data-lucide="map-pin"></i> GPS</button></div><div style="margin-top:8px"><input class="checkout-input" id="customer-house-number" value="'+escapeCatalogText(customerHouseNumber)+'" placeholder="Número da casa * (ex.: 123 ou 45A)" autocomplete="address-line2"></div>':''}${deliveryFeeInfo}</div>${paymentField}</div>${feeSummary}<button class="primary" id="continue-order">Enviar pedido <i data-lucide="arrow-right"></i></button><button class="checkout-back" id="back-to-cart">Voltar ao carrinho</button></div>`;
+    detail.innerHTML=`<div class="checkout-step ${checkoutStep==='cart'?'active':''}" data-checkout-screen="cart">${additionInfo}<div class="cart-list">${cart.map((item,index)=>`<div class="cart-item"><div class="cart-item-main"><div><h3>${item.name}</h3><p>${cartItemDetail(item)}</p></div><strong>${money(item.price*item.qty)}</strong></div><div class="cart-controls"><button data-cart-action="minus" data-index="${index}" aria-label="Diminuir"><i data-lucide="minus"></i></button><b>${item.qty}</b><button data-cart-action="plus" data-index="${index}" aria-label="Aumentar"><i data-lucide="plus"></i></button><button class="remove" data-cart-action="remove" data-index="${index}">Remover</button></div></div>`).join('')}</div><div class="total-line"><span>${addingToOrder?'Novos itens':'Total do pedido'}</span><strong>${money(subtotal)}</strong></div>${cartActionButton}</div><div class="checkout-step ${checkoutStep==='checkout'?'active':''}" data-checkout-screen="checkout"><div class="checkout-tabs"><button class="checkout-tab active">Finalizar pedido</button><button class="checkout-tab" id="checkout-summary-tab">${money(checkoutTotal)}</button></div><div class="checkout-fields"><div class="checkout-field"><strong>Seu nome</strong><input class="checkout-input" id="customer-name" value="${escapeCatalogText(customerName)}" placeholder="Digite seu nome" autocomplete="name"></div><div class="checkout-field"><strong>Telefone / WhatsApp</strong><input class="checkout-input" id="customer-phone" value="${escapeCatalogText(customerPhone)}" placeholder="(68) 99999-9999" inputmode="tel" autocomplete="tel"></div><div class="checkout-field"><strong>Como você quer receber?</strong><div class="checkout-options">${[['delivery','Entrega'],['pickup','Retirada']].map(([value,label])=>`<button class="checkout-option ${checkoutType===value?'selected':''}" data-checkout-type="${value}">${label}</button>`).join('')}</div>${checkoutType==='delivery'?`<div class="checkout-field"><strong>Bairro da entrega</strong><select class="checkout-input" id="customer-neighborhood" required><option value="">Selecione o bairro</option>${deliveryNeighborhoods.map(bairro=>`<option value="${bairro.code}" ${checkoutNeighborhood===bairro.code?'selected':''}>${escapeCatalogText(bairro.name)} — ${money(bairro.price)}</option>`).join('')}</select></div><div class="checkout-location"><input class="checkout-input" id="customer-address" value="\${escapeCatalogText(customerAddress)}" placeholder="Rua, bairro ou localização" autocomplete="street-address"><button type="button" class="gps-button" id="gps-button" title="Usar GPS"><i data-lucide="map-pin"></i> GPS</button></div><div style="margin-top:8px"><input class="checkout-input" id="customer-house-number" value="\${escapeCatalogText(customerHouseNumber)}" placeholder="Número da casa * (ex.: 123 ou 45A)" autocomplete="address-line2"></div>'`:''}${deliveryFeeInfo}</div>${paymentField}</div>${feeSummary}<button class="primary" id="continue-order">Enviar pedido <i data-lucide="arrow-right"></i></button><button class="checkout-back" id="back-to-cart">Voltar ao carrinho</button></div>`;
     lucide.createIcons();
-    const persistCheckoutInputs=()=>{customerName=document.querySelector('#customer-name')?.value.trim()||customerName;customerPhone=document.querySelector('#customer-phone')?.value.trim()||customerPhone;customerAddress=document.querySelector('#customer-address')?.value.trim()||customerAddress;customerHouseNumber=document.querySelector('#customer-house-number')?.value.trim() ?? customerHouseNumber;cashChangeFor=document.querySelector('#cash-change-for')?.value.trim()||cashChangeFor};
+    const persistCheckoutInputs=()=>{customerName=document.querySelector('#customer-name')?.value.trim()||customerName;customerPhone=document.querySelector('#customer-phone')?.value.trim()||customerPhone;customerAddress=document.querySelector('#customer-address')?.value.trim()||customerAddress;customerHouseNumber=document.querySelector('#customer-house-number')?.value.trim() ?? customerHouseNumber;cashChangeFor=document.querySelector('#cash-change-for')?.value.trim()||cashChangeFor;checkoutNeighborhood=document.querySelector('#customer-neighborhood')?.value||checkoutNeighborhood};
     document.querySelectorAll('[data-cart-action]').forEach(button=>button.onclick=()=>{const i=Number(button.dataset.index),action=button.dataset.cartAction;if(action==='plus')cart[i].qty++;if(action==='minus')cart[i].qty--;if(action==='remove'||cart[i].qty<=0)cart.splice(i,1);updateCart();document.querySelector('#cart-overlay').classList.add('show')});
     document.querySelector('#go-checkout')?.addEventListener('click',()=>{checkoutStep='checkout';renderCart()});
     document.querySelector('#add-to-existing-order')?.addEventListener('click',sendAdditionToOperation);
@@ -759,6 +774,7 @@
     document.querySelector('#customer-phone')?.addEventListener('input',event=>{customerPhone=event.target.value});
     document.querySelector('#customer-address')?.addEventListener('input',event=>{customerAddress=event.target.value});
     document.querySelector('#customer-house-number')?.addEventListener('input',event=>{customerHouseNumber=event.target.value});
+    document.querySelector('#customer-neighborhood')?.addEventListener('change',event=>{persistCheckoutInputs();checkoutNeighborhood=event.target.value;renderCart()});
     document.querySelector('#cash-change-for')?.addEventListener('input',event=>{cashChangeFor=event.target.value});
     document.querySelector('#continue-order').onclick=sendOrderToOperation;
   }
