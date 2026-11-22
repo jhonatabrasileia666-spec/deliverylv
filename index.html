@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="lv-updates-build" content="20261122-duas-grandes-v1">
+  <meta name="lv-updates-build" content="20261122-duas-grandes-v2">
   <script src="./lv-updates.js?v=20261016-atualizacao-por-evento-v1"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#11100f">
@@ -295,7 +295,7 @@
   ];
   const selectedNeighborhood=()=>deliveryNeighborhoods.find(bairro=>bairro.code===checkoutNeighborhood);
   const deliveryFees=()=>{
-    const hasPizza=cart.some(item=>item.category==='pizzas'||item.comboPizza===true);
+    const hasPizza=cart.some(item=>item.category==='pizzas'||item.comboPizza===true||item.comboDuasGrandes===true);
     const esfihaQty=cart.filter(item=>item.category==='esfirras').reduce((sum,item)=>{const name=String(item.originalName||item.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();const units=name==='combo esfirras'?10:1;return sum+(Number(item.qty||0)*units)},0);
     const creditFee=checkoutType==='delivery'&&checkoutPayment==='card'&&checkoutCardType==='credit'?Math.max(0,Number(storeSettings.card_credit_fee||0)):0;
     const minQty=Math.max(1,Number(storeSettings.esfiha_min_free_delivery||5));
@@ -644,6 +644,13 @@
           payload.combo_pizza_flavors={grande:(item.flavors||[]).map(flavor=>flavor.id),pequena_doce:item.smallSweet};
           if(item.drink)payload.combo_drink_id=item.drink.id;
         }
+        if(item.comboDuasGrandes){
+          if(!Array.isArray(item.pizzas)||item.pizzas.length!==2||item.pizzas.some(pizza=>!pizza.flavorId))
+            throw new Error('Escolha os sabores das duas pizzas grandes');
+          payload.combo_pizza_flavors=item.pizzas.map(pizza=>pizza.flavorId);
+          payload.combo_pizza_edges=item.pizzas.map(pizza=>pizza.edge?pizza.edge[0]:null);
+          if(item.drink)payload.combo_drink_id=item.drink.id;
+        }
         if(category==='esfirras'&&normalizeProductName(item.originalName||item.name)==='combo esfirras'&&Array.isArray(item.comboFlavors)&&item.comboFlavors.length)payload.combo_flavors=item.comboFlavors.map(flavor=>flavor.id);
         if(item.edge)payload.edge=item.edge[0];
         return payload;
@@ -685,6 +692,12 @@
         if(item.sizeName)detalhes.push(`Tamanho ${item.sizeName}`);
         if(item.comboPizza)detalhes.push(`Pizza Grande: ${(item.flavors||[]).map(flavor=>flavor.name).join(' / ')}`,`Pizza Pequena doce: ${item.smallSweet||'Não selecionada'}`);
         else if(Array.isArray(item.flavors)&&item.flavors.length>1)detalhes.push(`Sabores: ${item.flavors.map(flavor=>flavor.name).join(' / ')}`);
+        if(item.comboDuasGrandes){
+          (item.pizzas||[]).forEach((pizza,index)=>{
+            detalhes.push(`Pizza ${index+1}: Grande ${pizza.flavorName}${pizza.edge?' · Borda '+pizza.edge[0]:' · Sem borda'}`);
+          });
+          if(item.drink)detalhes.push(`Refrigerante: ${item.drink.name}`);
+        }
         if(item.edge)detalhes.push(`Borda ${item.edge[0]}`);
         if(Array.isArray(item.comboFlavors)&&item.comboFlavors.length)detalhes.push(`Sabores do combo: ${item.comboFlavors.map(flavor=>flavor.name).join(' / ')}`);
         if(item.note)detalhes.push(`Obs: ${item.note}`);
