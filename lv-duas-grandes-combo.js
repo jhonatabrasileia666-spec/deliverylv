@@ -4,7 +4,7 @@
   const isCombo=product=>product?.combo_kind===KIND;
   const isComboCart=item=>Boolean(item?.comboDuasGrandes);
   const allowedFlavors=()=>pizzaFlavorProducts().filter(product=>
-    ['calabresa','frango'].includes(normalizeProductName(product.name)) &&
+    ['calabresa','frango','tres porcos'].includes(normalizeProductName(product.name)) &&
     productSizesFor(product).some(size=>normalizeSizeName(size.name)==='grande')
   );
   const oldOpenProduct=openProduct;
@@ -21,7 +21,7 @@
       id:product.id,name:product.name,originalName:product.name,
       ingredients:product.description||'',category:categorySlugFor(product),
       comboDuasGrandes:true,pricingMode:'fixed',basePrice:Number(product.base_price||0),
-      pizzas:[{flavorId:null,flavorName:'',edge:null},{flavorId:null,flavorName:'',edge:null}],
+      pizzas:[{flavorId:null,flavorName:'',premium:0,edge:null},{flavorId:null,flavorName:'',premium:0,edge:null}],
       drink:null,qty:1,note:'',edge:null,image:product.image_url||pizzaImage
     };
     renderProduct();
@@ -31,7 +31,8 @@
   currentPrice=function(){
     if(!selected?.comboDuasGrandes)return oldCurrentPrice();
     const bordas=selected.pizzas.reduce((total,pizza)=>total+Number(pizza.edge?.[1]||0),0);
-    return Math.round((selected.basePrice+bordas+Number(selected.drink?.price||0))*100)/100;
+    const premium=selected.pizzas.reduce((total,pizza)=>total+Number(pizza.premium||0),0);
+    return Math.round((selected.basePrice+premium+bordas+Number(selected.drink?.price||0))*100)/100;
   };
 
   function renderDuasGrandes(){
@@ -46,7 +47,8 @@
       const flavorOptions=flavors.map(product=>
         '<button type="button" class="option '+(String(pizza.flavorId)===String(product.id)?'selected':'')+
         '" data-duas-flavor="'+i+'" data-duas-flavor-id="'+product.id+'"><strong>'+
-        escapeCatalogText(product.name)+'</strong><span>Incluso</span></button>'
+        escapeCatalogText(product.name)+'</strong><span>'+
+        (Number(product.price_addition||0)>0?'+ '+money(Number(product.price_addition)):'Sem acréscimo')+'</span></button>'
       ).join('');
       const edgeOptions='<button type="button" class="option '+(!pizza.edge?'selected':'')+
         '" data-duas-edge="'+i+'" data-duas-edge-index="none"><strong>Sem borda</strong><span>Sem acréscimo</span></button>'+
@@ -71,7 +73,7 @@
     host.innerHTML='<div class="detail-hero"><img class="detail-image" src="'+escapeCatalogText(selected.image)+
       '" alt="" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()"><div><h3>'+
       escapeCatalogText(selected.name)+'</h3><p>2 pizzas Grandes por '+money(selected.basePrice)+
-      '. Escolha Calabresa ou Frango para cada pizza. Bordas e refrigerante cobrados à parte.</p></div></div>'+
+      '. Escolha Calabresa, Frango ou Três Porcos para cada pizza. Sabor especial, bordas e refrigerante cobrados à parte.</p></div></div>'+
       pizzaFields+'<div class="field"><span class="field-label">Refrigerante (opcional)</span>'+
       '<div class="option-grid">'+drinkOptions+'</div></div>'+
       '<div class="field"><span class="field-label">Quantidade de combos</span><div class="quantity">'+
@@ -91,6 +93,7 @@
       if(!product)return;
       selected.pizzas[idx].flavorId=product.id;
       selected.pizzas[idx].flavorName=product.name;
+      selected.pizzas[idx].premium=Number(product.price_addition||0);
       renderProduct();
     });
     host.querySelectorAll('[data-duas-edge]').forEach(button=>button.onclick=()=>{
@@ -158,7 +161,7 @@
       '" aria-label="Montar combo de duas pizzas grandes"><img src="'+escapeCatalogText(image)+
       '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.remove()">'+
       '<span class="promo-card-copy"><span class="promo-pill">2 PIZZAS GRANDES</span><h3>'+
-      escapeCatalogText(product.name)+'</h3><small>Calabresa ou Frango · bordas individuais e refrigerante opcionais</small>'+
+      escapeCatalogText(product.name)+'</h3><small>Calabresa, Frango ou Três Porcos (+ R$ 5) · bordas individuais e refrigerante opcionais</small>'+
       '<span class="promo-prices"><strong>'+money(product.base_price)+' + opcionais</strong></span></span></button>';
   };
   renderPromotions=function(){
