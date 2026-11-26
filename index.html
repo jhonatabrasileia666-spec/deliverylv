@@ -295,7 +295,7 @@
   ];
   const selectedNeighborhood=()=>deliveryNeighborhoods.find(bairro=>bairro.code===checkoutNeighborhood);
   const deliveryFees=()=>{
-    const hasPizza=cart.some(item=>item.category==='pizzas'||item.comboPizza===true||item.comboDuasGrandes===true);
+    const hasPizza=cart.some(item=>item.category==='pizzas'||item.comboPizza===true||item.comboDuasGrandes===true||item.relampago===true);
     const esfihaQty=cart.filter(item=>item.category==='esfirras').reduce((sum,item)=>{const name=String(item.originalName||item.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();const units=name==='combo esfirras'?10:1;return sum+(Number(item.qty||0)*units)},0);
     const creditFee=checkoutType==='delivery'&&checkoutPayment==='card'&&checkoutCardType==='credit'?Math.max(0,Number(storeSettings.card_credit_fee||0)):0;
     const minQty=Math.max(1,Number(storeSettings.esfiha_min_free_delivery||5));
@@ -532,7 +532,8 @@
       if(item.sizeName)payload.size=item.sizeName;
       if(category==='pizzas'&&Array.isArray(item.flavors)&&item.flavors.length)payload.flavors=item.flavors.map(flavor=>flavor.id);
       if(category==='esfirras'&&normalizeProductName(item.originalName||item.name)==='combo esfirras'&&Array.isArray(item.comboFlavors)&&item.comboFlavors.length)payload.combo_flavors=item.comboFlavors.map(flavor=>flavor.id);
-      if(item.edge)payload.edge=item.edge[0];
+      if(item.relampago){payload.relampago_flavors=item.flavors.map(f=>f.id);if(item.drink)payload.combo_drink_id=item.drink.id;}
+        if(item.edge)payload.edge=item.edge[0];
       return payload;
     });
   }
@@ -652,6 +653,7 @@
           if(item.drink)payload.combo_drink_id=item.drink.id;
         }
         if(category==='esfirras'&&normalizeProductName(item.originalName||item.name)==='combo esfirras'&&Array.isArray(item.comboFlavors)&&item.comboFlavors.length)payload.combo_flavors=item.comboFlavors.map(flavor=>flavor.id);
+        if(item.relampago){payload.relampago_flavors=item.flavors.map(f=>f.id);if(item.drink)payload.combo_drink_id=item.drink.id;}
         if(item.edge)payload.edge=item.edge[0];
         return payload;
       });
@@ -698,6 +700,7 @@
           });
           if(item.drink)detalhes.push(`Refrigerante: ${item.drink.name}`);
         }
+        if(item.relampago){if(item.flavors.length===1)detalhes.push('Sabor: '+item.flavors[0].name);if(item.drink)detalhes.push('Refrigerante: '+item.drink.name);}
         if(item.edge)detalhes.push(`Borda ${item.edge[0]}`);
         if(Array.isArray(item.comboFlavors)&&item.comboFlavors.length)detalhes.push(`Sabores do combo: ${item.comboFlavors.map(flavor=>flavor.name).join(' / ')}`);
         if(item.note)detalhes.push(`Obs: ${item.note}`);
@@ -1060,7 +1063,54 @@
 
 <script src="./combo-flavors.js?v=20261001-combo-carne-seca-house-number-v1"></script>
 <script src="./lv-pizza-combo.js?v=20261117-combo-casal-doce-v2"></script>
-<script src="./lv-duas-grandes-combo.js?v=20261122-tres-porcos-v2"></script>\n</body>
+<script src="./lv-duas-grandes-combo.js?v=20261122-tres-porcos-v2"></script>\n<script id="lv-relampago">(function installRelampago(){
+  const kind='relampago_grande';
+  const isPromo=p=>p?.combo_kind===kind;
+  const oldOpen=openProduct, oldRender=renderProduct, oldPrice=currentPrice, oldDetail=cartItemDetail, oldCard=promotionCard, oldPromos=renderPromotions;
+  const available=()=>pizzaFlavorProducts().filter(p=>productSizesFor(p).some(s=>normalizeSizeName(s.name)==='grande'));
+  openProduct=function(id,size=''){
+    const p=catalogProducts.find(p=>String(p.id)===String(id));
+    if(!isPromo(p))return oldOpen(id,size);
+    selected={id:p.id,name:p.name,originalName:p.name,category:'promocoes',relampago:true,basePrice:Number(p.base_price),pricingMode:'fixed',sizeName:'Grande',flavors:[],edge:null,drink:null,qty:1,note:'',image:p.image_url||pizzaImage};
+    renderProduct();document.querySelector('#product-overlay').classList.add('show');
+  };
+  currentPrice=function(){
+    if(!selected?.relampago)return oldPrice();
+    return Math.round((selected.basePrice+selected.flavors.reduce((sum,f)=>sum+Number(flavorProduct(f.id)?.price_addition||0),0)+Number(selected.edge?.[1]||0)+Number(selected.drink?.price||0))*100)/100;
+  };
+  renderProduct=function(){
+    if(!selected?.relampago)return oldRender();
+    const host=document.querySelector('#product-detail'), flavors=available();
+    const edges=selected.flavors.every(f=>flavorProduct(f.id)?.allow_edges)?productEdges().filter(e=>normalizeProductName(e[0])!=='catupiry'):[];
+    if(selected.edge&&!edges.some(e=>e[0]===selected.edge[0]))selected.edge=null;
+    const drinks=catalogProducts.filter(p=>categorySlugFor(p)==='bebidas'&&p.pricing_mode==='fixed');
+    const esc=escapeCatalogText;
+    const btn=(attr,val,label,sub,active)=>`<button type="button" class="option ${active?'selected':''}" data-${attr}="${esc(val)}"><strong>${esc(label)}</strong><span>${esc(sub)}</span></button>`;
+    const field=(label,buttons,extra='')=>`<div class="field"><span class="field-label">${esc(label)}</span><div class="option-grid ${extra}">${buttons}</div></div>`;
+    host.innerHTML=`<div class="detail-hero"><img class="detail-image" src="${esc(selected.image)}" alt=""><div><h3>${esc(selected.name)}</h3><p>Pizza Grande · ${money(selected.basePrice)} + adicionais e opcionais.</p></div></div>`+
+      field(`Escolha 1 ou 2 sabores (${selected.flavors.length}/2)`,flavors.map(p=>btn('flash-flavor',p.id,p.name,Number(p.price_addition)>0?'+ '+money(Number(p.price_addition)):'Sem acréscimo',selected.flavors.some(f=>f.id===p.id))).join(''),'flavor-grid')+
+      field('Borda opcional',btn('flash-edge','none','Sem borda','Sem acréscimo',!selected.edge)+edges.map((e,i)=>btn('flash-edge',i,e[0],'+ '+money(e[1]),selected.edge?.[0]===e[0])).join(''))+
+      field('Refrigerante opcional',btn('flash-drink','none','Sem refrigerante','Sem acréscimo',!selected.drink)+drinks.map(p=>btn('flash-drink',p.id,p.name,'+ '+money(Number(p.base_price||0)+Number(p.price_addition||0)),selected.drink?.id===p.id)).join(''))+
+      `<div class="field"><span class="field-label">Quantidade</span><div class="quantity"><button type="button" class="step" data-flash-qty="-1">−</button><b>${selected.qty}</b><button type="button" class="step" data-flash-qty="1">+</button></div></div><div class="field"><label class="field-label" for="note">Observação</label><textarea class="textarea" id="note">${esc(selected.note)}</textarea></div><div class="total-line"><span>Total</span><strong>${money(currentPrice()*selected.qty)}</strong></div><button class="primary" id="add-product" ${selected.flavors.length?'':'disabled'}>Adicionar ao pedido <i data-lucide="shopping-bag"></i></button>`;
+    const note=()=>{selected.note=host.querySelector('#note').value};
+    host.querySelectorAll('[data-flash-flavor]').forEach(b=>b.onclick=()=>{note();const p=flavors.find(p=>String(p.id)===b.dataset.flashFlavor);if(!p)return;const i=selected.flavors.findIndex(f=>f.id===p.id);if(i>=0)selected.flavors.splice(i,1);else if(selected.flavors.length<2)selected.flavors.push(flavorInfo(p));else return showToast('Escolha até dois sabores');renderProduct()});
+    host.querySelectorAll('[data-flash-edge]').forEach(b=>b.onclick=()=>{note();selected.edge=b.dataset.flashEdge==='none'?null:edges[Number(b.dataset.flashEdge)];renderProduct()});
+    host.querySelectorAll('[data-flash-drink]').forEach(b=>b.onclick=()=>{note();const p=drinks.find(p=>String(p.id)===b.dataset.flashDrink);selected.drink=p?{id:p.id,name:p.name,price:Number(p.base_price||0)+Number(p.price_addition||0)}:null;renderProduct()});
+    host.querySelectorAll('[data-flash-qty]').forEach(b=>b.onclick=()=>{note();selected.qty=Math.max(1,Math.min(50,selected.qty+Number(b.dataset.flashQty)));renderProduct()});
+    host.querySelector('#add-product').onclick=()=>{if(!selected.flavors.length)return;note();cart.push({...selected,flavors:selected.flavors.map(f=>({...f})),edge:selected.edge?[...selected.edge]:null,drink:selected.drink?{...selected.drink}:null,price:currentPrice()});closeOverlay('product-overlay');updateCart();showToast('Promoção adicionada ao pedido')};
+    lucide.createIcons();
+  };
+  cartItemDetail=function(item){if(!item.relampago)return oldDetail(item);return ['Grande · Sabores: '+item.flavors.map(f=>f.name).join(' / '),item.edge?'Borda '+item.edge[0]:'Sem borda',item.drink?'Refrigerante '+item.drink.name:'',item.note].filter(Boolean).map(escapeCatalogText).join(' · ')};
+  promotionCard=function(p){if(!isPromo(p))return oldCard(p);return `<button type="button" class="promo-card" data-configure-product="${p.id}"><img src="${escapeCatalogText(p.image_url||pizzaImage)}" alt=""><span class="promo-card-copy"><span class="promo-pill">PIZZA GRANDE</span><h3>${escapeCatalogText(p.name)}</h3><small>Todos os sabores disponíveis · adicionais à parte</small><span class="promo-prices"><strong>${money(p.base_price)}</strong></span></span></button>`};
+  renderPromotions=function(){
+    if(!catalogProducts.some(isPromo))return oldPromos();
+    const host=document.querySelector('#promo-showcase'),track=document.querySelector('#promo-track');if(!host||!track)return;
+    const promos=catalogProducts.filter(p=>isPromo(p)||productOnPromotion(p)||['grande_pequena_choco_morango','duas_grandes_calabresa_frango'].includes(p.combo_kind)).sort((a,b)=>Number(isPromo(b))-Number(isPromo(a))||Number(a.promotion_sort_order||0)-Number(b.promotion_sort_order||0));
+    const cards=promos.map(promotionCard).join(''),filled=Array.from({length:Math.max(1,Math.ceil(8/promos.length))},()=>cards).join('');
+    track.innerHTML=`<div class="promo-set">${filled}</div><div class="promo-set" aria-hidden="true">${filled}</div>`;host.hidden=false;
+  };
+})();</script>
+</body>
 </html>
 
 
